@@ -161,18 +161,17 @@ See `.env.example` for all available environment variables.
 - [Terms of Service](./src/app/terms/page.tsx)
 - [Privacy Policy](./src/app/privacy/page.tsx)
 
-## Roadmap
+## Beta Status (March 2026)
 
-- [ ] User authentication system
-- [ ] Bot creation interface
-- [ ] Chat messaging system
-- [ ] Persona management
-- [ ] Profile customization
-- [ ] Music player integration
-- [ ] Real-time notifications
-- [ ] Bot publishing system
-- [ ] Chat rooms
-- [ ] Community features
+- [x] Production build passes (`npm run build`)
+- [x] Lint passes with strict warnings gate (`npm run lint -- --max-warnings=0`)
+- [x] Auth required on sensitive AI and data APIs
+- [x] Rate limiting enabled for AI/upload endpoints
+- [x] Middleware protection enabled for sensitive API routes
+- [x] Smoke test runner added (`npm run smoke`)
+- [x] Terms and Privacy pages shipped
+
+See [Beta Launch Checklist](./BETA_CHECKLIST.md) for go/no-go validation.
 
 ## Content Warning
 
@@ -185,4 +184,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is private and confidential.
-"# botainy" 
