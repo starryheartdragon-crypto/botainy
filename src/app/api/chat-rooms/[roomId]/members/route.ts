@@ -132,7 +132,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
     })
 
     return NextResponse.json(response)
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
