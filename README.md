@@ -53,7 +53,7 @@ An 18+ interactive web application for creating and chatting with AI-powered cha
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd ai-chatbot-rp-app
+cd botainy
 ```
 
 2. Install dependencies:
@@ -158,6 +158,8 @@ See `.env.example` for all available environment variables.
 - [Database Setup Guide](./SETUP.md)
 - [Beta Launch Checklist](./BETA_CHECKLIST.md)
 - [Copilot Instructions](./.github/copilot-instructions.md)
+- [Terms of Service](./src/app/terms/page.tsx)
+- [Privacy Policy](./src/app/privacy/page.tsx)
 
 ## Roadmap
 
