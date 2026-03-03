@@ -102,6 +102,18 @@ export function LoginForm() {
           Sign up
         </Link>
       </p>
+
+      <p className="text-center text-xs text-gray-500">
+        By continuing, you agree to our{' '}
+        <Link href="/terms" className="text-purple-400 hover:text-purple-300">
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="text-purple-400 hover:text-purple-300">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </form>
   )
 }

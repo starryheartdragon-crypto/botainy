@@ -156,6 +156,7 @@ See `.env.example` for all available environment variables.
 ## Documentation
 
 - [Database Setup Guide](./SETUP.md)
+- [Beta Launch Checklist](./BETA_CHECKLIST.md)
 - [Copilot Instructions](./.github/copilot-instructions.md)
 
 ## Roadmap
