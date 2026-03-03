@@ -2,9 +2,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type NotificationItem = {
+  id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 

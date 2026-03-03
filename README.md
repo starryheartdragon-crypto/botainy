@@ -118,6 +118,36 @@ src/
 - `npm run build` - Build for production
 - `npm start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run smoke` - Run authenticated API smoke checks (chat creation + messaging)
+
+## Smoke Testing
+
+The smoke suite runs a minimal authenticated flow:
+
+1. List chats (`GET /api/chats`)
+2. Create/reuse a chat (`POST /api/chats`)
+3. Send a message (`POST /api/chats/[chatId]/messages`)
+4. Verify messages load (`GET /api/chats/[chatId]/messages`)
+
+Required environment variables:
+
+```bash
+SMOKE_AUTH_TOKEN=your_supabase_access_token
+SMOKE_BOT_ID=existing_bot_uuid
+```
+
+Optional variables:
+
+```bash
+SMOKE_BASE_URL=http://localhost:3000
+SMOKE_PERSONA_ID=existing_persona_uuid
+```
+
+Run the app, then run:
+
+```bash
+npm run smoke
+```
 
 ## Environment Variables
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -55,7 +55,7 @@ export default function GroupChatDetailPage() {
     })
   }
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) return
 
@@ -67,7 +67,7 @@ export default function GroupChatDetailPage() {
     if (!msgResp.ok) return
     const data = await msgResp.json()
     upsertMessages(Array.isArray(data) ? data : [])
-  }
+  }, [groupChatId])
 
   useEffect(() => {
     const init = async () => {
@@ -129,7 +129,7 @@ export default function GroupChatDetailPage() {
       window.clearInterval(intervalId)
       channel.unsubscribe()
     }
-  }, [groupChatId])
+  }, [fetchMessages, groupChatId])
 
   const sendMessage = async () => {
     const content = text.trim()

@@ -39,7 +39,7 @@ export function LoginForm() {
         emailToUse = userRow.email
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: emailToUse,
         password,
       })
@@ -97,7 +97,7 @@ export function LoginForm() {
       </button>
 
       <p className="text-center text-gray-400 text-sm">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <Link href="/signup" className="text-purple-400 hover:text-purple-300 font-semibold">
           Sign up
         </Link>

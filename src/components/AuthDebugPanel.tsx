@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 export default function AuthDebugPanel() {
-  const [session, setSession] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
-  const [cookies, setCookies] = useState<string>("");
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [cookies] = useState<string>(() => (typeof document !== "undefined" ? document.cookie : ""));
 
   useEffect(() => {
     async function fetchSession() {
@@ -16,7 +17,6 @@ export default function AuthDebugPanel() {
       setUser(userData?.user || null);
     }
     fetchSession();
-    setCookies(document.cookie);
   }, []);
 
   return (

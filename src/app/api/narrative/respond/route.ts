@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
 
 type Relationship = {
   affection: number
@@ -118,6 +119,26 @@ function normalizeTurnResponse(
 
 export async function POST(req: Request) {
   try {
+    const limit = checkRateLimit({
+      bucket: 'narrative-respond',
+      key: getClientIpFromHeaders(req.headers),
+      max: 30,
+      windowMs: 60_000,
+    })
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(limit),
+            'Retry-After': String(limit.retryAfterSeconds),
+          },
+        }
+      )
+    }
+
     const { narrative, relationshipMeters, userResponse, history } = (await req.json()) as {
       narrative?: NarrativePayload
       relationshipMeters?: RelationshipMeters
@@ -132,19 +153,22 @@ export async function POST(req: Request) {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) {
       const fallbackNpc = narrative.npcs[0]?.name || 'Advisor'
-      return NextResponse.json({
-        turn: normalizeTurnResponse(
-          {
-            directorText:
-              'Your statement echoes through the chamber; eyes shift, and silence turns strategic.',
-            npcReplies: [{ name: fallbackNpc, line: '“Your move forces our enemies to react tonight.”' }],
-            nextSituation: 'A sealed ledger is brought forward, marked with the crest of a trusted house.',
-            relationshipEffects: { [fallbackNpc]: { affection: 2, suspicion: -1, fear: 0 } },
-            updatedTensionClock: 'One step closer to dawn',
-          },
-          fallbackNpc
-        ),
-      })
+      return NextResponse.json(
+        {
+          turn: normalizeTurnResponse(
+            {
+              directorText:
+                'Your statement echoes through the chamber; eyes shift, and silence turns strategic.',
+              npcReplies: [{ name: fallbackNpc, line: '“Your move forces our enemies to react tonight.”' }],
+              nextSituation: 'A sealed ledger is brought forward, marked with the crest of a trusted house.',
+              relationshipEffects: { [fallbackNpc]: { affection: 2, suspicion: -1, fear: 0 } },
+              updatedTensionClock: 'One step closer to dawn',
+            },
+            fallbackNpc
+          ),
+        },
+        { headers: rateLimitHeaders(limit) }
+      )
     }
 
     const npcSummary = narrative.npcs
@@ -229,7 +253,7 @@ ${userResponse.trim()}`
     const fallbackNpcName = narrative.npcs[0]?.name || 'Advisor'
     const turn = normalizeTurnResponse(parsed ?? {}, fallbackNpcName)
 
-    return NextResponse.json({ turn })
+    return NextResponse.json({ turn }, { headers: rateLimitHeaders(limit) })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ error: message }, { status: 500 })

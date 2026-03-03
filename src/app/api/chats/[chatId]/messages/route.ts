@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+type PersonaContext = { name: string; description: string | null }
+type BotInfo = { name: string; personality: string }
+type ChatWithRelations = {
+  id: string
+  user_id: string
+  bot_id: string
+  bots: BotInfo | BotInfo[] | null
+  personas: PersonaContext | PersonaContext[] | null
+}
+type OpenRouterResponse = {
+  choices?: Array<{ message?: { content?: string } }>
+  error?: unknown
+  message?: unknown
+}
+
 function getSupabaseClients() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -54,6 +69,11 @@ async function getAuthUser(req: NextRequest) {
   return user
 }
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
 // GET /api/chats/[chatId]/messages - Get messages for a chat
 export async function GET(
   req: NextRequest,
@@ -91,8 +111,8 @@ export async function GET(
     }
 
     return NextResponse.json(messages)
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
@@ -131,7 +151,8 @@ export async function POST(
       return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 403 })
     }
 
-    let personaContext = (chat as any).personas as { name: string; description: string | null } | null
+    const typedChat = chat as unknown as ChatWithRelations
+    let personaContext: PersonaContext | null = firstRelation(typedChat.personas)
     if (hasPersonaId) {
       if (personaId) {
         const { data: persona, error: personaError } = await serviceClient
@@ -193,7 +214,10 @@ export async function POST(
     }))
 
     // Add system prompt with bot personality
-    const botInfo = chat.bots as any
+    const botInfo = firstRelation(typedChat.bots)
+    if (!botInfo) {
+      return NextResponse.json({ error: 'Bot details missing for chat' }, { status: 500 })
+    }
     const personaPrompt = personaContext
       ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
@@ -218,16 +242,17 @@ export async function POST(
           }),
         })
 
-        const openrouterData = await openrouterResp.json().catch(() => null)
+        const openrouterData: OpenRouterResponse | null = await openrouterResp
+          .json()
+          .catch(() => null)
         if (openrouterResp.ok) {
-          botResponseContent =
-            (openrouterData as any)?.choices?.[0]?.message?.content || "I didn't understand that."
+          botResponseContent = openrouterData?.choices?.[0]?.message?.content || "I didn't understand that."
         } else {
           console.error('OpenRouter returned non-OK response:', {
             status: openrouterResp.status,
             error:
-              getErrorMessage((openrouterData as any)?.error, '') ||
-              getErrorMessage((openrouterData as any)?.message, '') ||
+              getErrorMessage(openrouterData?.error, '') ||
+              getErrorMessage(openrouterData?.message, '') ||
               'Unknown upstream error',
           })
         }
@@ -240,7 +265,7 @@ export async function POST(
 
     // Save bot response
     const candidateSenderIds = [`bot_${chat.bot_id}`, chat.bot_id]
-    let botMessage: any = null
+    let botMessage: Record<string, unknown> | null = null
     let lastBotInsertError: unknown = null
 
     for (const senderId of candidateSenderIds) {
@@ -291,7 +316,7 @@ export async function POST(
       userMessage,
       botMessage,
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }

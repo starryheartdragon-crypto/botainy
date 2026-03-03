@@ -8,6 +8,14 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const authClient = createClient(supabaseUrl, supabaseAnonKey)
 const serviceClient = createClient(supabaseUrl, serviceRoleKey)
 
+type BasicUser = {
+  id: string
+  username: string | null
+  avatar_url: string | null
+  bio: string | null
+  is_admin: boolean | null
+}
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
@@ -79,7 +87,7 @@ export async function GET(req: NextRequest) {
 
     const allUserIds = Array.from(new Set([...incomingIds, ...outgoingIds, ...connectionIds]))
 
-    let usersById: Record<string, any> = {}
+    let usersById: Record<string, BasicUser> = {}
     if (allUserIds.length > 0) {
       const { data: users, error: usersError } = await serviceClient
         .from('users')
@@ -112,7 +120,7 @@ export async function GET(req: NextRequest) {
     })
 
     const excludedIds = new Set<string>([user.id, ...incomingIds, ...outgoingIds, ...connectionIds])
-    let discover: any[] = []
+    let discover: BasicUser[] = []
 
     if (q.length > 0) {
       const { data: discoverUsers, error: discoverError } = await serviceClient

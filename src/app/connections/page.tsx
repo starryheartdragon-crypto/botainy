@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 
@@ -28,14 +28,14 @@ export default function ConnectionsPage() {
   const [connections, setConnections] = useState<ConnectionItem[]>([])
   const [discover, setDiscover] = useState<Array<{ id: string; username: string | null; avatar_url: string | null; bio: string | null; isAdmin?: boolean }>>([])
 
-  const getToken = async () => {
+  const getToken = useCallback(async () => {
     const {
       data: { session },
     } = await supabase.auth.getSession()
     return session?.access_token || null
-  }
+  }, [])
 
-  const loadConnections = async (query = '') => {
+  const loadConnections = useCallback(async (query = '') => {
     const token = await getToken()
     if (!token) {
       window.location.href = '/login'
@@ -58,7 +58,7 @@ export default function ConnectionsPage() {
     setOutgoing(data.outgoing || [])
     setConnections(data.connections || [])
     setDiscover(data.discover || [])
-  }
+  }, [getToken])
 
   useEffect(() => {
     const init = async () => {
@@ -69,7 +69,7 @@ export default function ConnectionsPage() {
       }
     }
     init()
-  }, [])
+  }, [loadConnections])
 
   const sendRequest = async (targetUserId: string) => {
     const token = await getToken()

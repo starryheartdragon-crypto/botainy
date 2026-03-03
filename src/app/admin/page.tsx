@@ -1,9 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 const TABS = ["Reports", "Bots", "Users", "Chat Rooms", "Universe Requests"];
+
+type ReportRow = {
+  id: string;
+  reporter_id: string | null;
+  reported_user_id: string | null;
+  reported_bot_id: string | null;
+  reason: string;
+  status: "open" | "resolved" | "rejected";
+};
+
+type BotRow = {
+  id: string;
+  name: string;
+  creator_id: string;
+  description: string | null;
+  is_published: boolean;
+};
+
+type UserRow = {
+  id: string;
+  username: string | null;
+  email: string | null;
+  is_banned: boolean | null;
+  is_silenced: boolean | null;
+  is_admin: boolean | null;
+};
+
+type RoomRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  background_url: string | null;
+  city_info: string | null;
+  notable_bots: string | null;
+  created_at: string;
+};
+
+type ModerationRequestRow = {
+  id: string;
+  requested_name: string;
+  request_details: string;
+  requester_id: string;
+  created_at: string;
+  status: "pending" | "reviewed" | "approved" | "rejected";
+};
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -47,8 +93,8 @@ export default function AdminPage() {
         }
 
         setIsAdmin(!!payload?.isAdmin);
-      } catch (err: any) {
-        setAccessError(err?.message || "Failed to verify admin access");
+      } catch (err: unknown) {
+        setAccessError(err instanceof Error ? err.message : "Failed to verify admin access");
         setIsAdmin(false);
       } finally {
         setChecking(false);
@@ -103,7 +149,7 @@ export default function AdminPage() {
 }
 
 function ReportsTab() {
-  const [reports, setReports] = useState<any[]>([]);
+  const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   useEffect(() => {
     supabase.from("reports").select("*,reporter_id,reported_user_id,reported_bot_id").order("created_at", { ascending: false }).then(({ data }) => setReports(data || []));
@@ -140,14 +186,14 @@ function ReportsTab() {
 }
 
 function BotsTab() {
-  const [bots, setBots] = useState<any[]>([]);
+  const [bots, setBots] = useState<BotRow[]>([]);
   const [modReason, setModReason] = useState<{[id:string]:string}>({});
   const [modLoading, setModLoading] = useState<string | null>(null);
   useEffect(() => {
     supabase.from("bots").select("*").order("created_at", { ascending: false }).then(({ data }) => setBots(data || []));
   }, []);
 
-  async function handleModAction(bot: any, action: "private"|"delete") {
+  async function handleModAction(bot: BotRow, action: "private"|"delete") {
     if (!modReason[bot.id] || !modReason[bot.id].trim()) {
       alert("Please provide an explanation for this action.");
       return;
@@ -223,14 +269,14 @@ function BotsTab() {
 }
 
 function UsersTab() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   useEffect(() => {
     supabase.from("users").select("id,username,email,is_banned,is_silenced,is_admin").order("created_at", { ascending: false }).then(({ data }) => setUsers(data || []));
   }, []);
   async function handleUserAction(id: string, action: "ban"|"unban"|"silence"|"unsilence") {
     setLoading(id + action);
-    let update: any = {};
+    const update: { is_banned?: boolean; is_silenced?: boolean } = {};
     let notifMsg = "";
     if (action === "ban") {
       update.is_banned = true;
@@ -291,8 +337,8 @@ function UsersTab() {
 }
 
 function ChatRoomsTab() {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<RoomRow[]>([]);
+  const [requests, setRequests] = useState<ModerationRequestRow[]>([]);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [bgUrl, setBgUrl] = useState("");
@@ -319,7 +365,7 @@ function ChatRoomsTab() {
     if (!files || files.length === 0) return;
     setBgFile(files[0]);
   }
-  async function handleCreate(e: any) {
+  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!name) return;
     setLoading(true);
@@ -482,7 +528,7 @@ function ChatRoomsTab() {
           {rooms.map(r => (
             <li key={r.id} className="bg-gray-900 rounded p-4 border border-gray-700 relative group overflow-hidden">
               {r.background_url && (
-                <img src={r.background_url} alt="bg" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all duration-500" />
+                <Image src={r.background_url} alt="bg" fill className="object-cover opacity-20 group-hover:opacity-40 transition-all duration-500" />
               )}
               <div className="relative z-10">
                 <div className="font-semibold text-white text-xl mb-1">{r.name}</div>
@@ -507,7 +553,7 @@ function ChatRoomsTab() {
 }
 
 function UniverseRequestsTab() {
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<ModerationRequestRow[]>([]);
   const [requestLoading, setRequestLoading] = useState<string | null>(null);
 
   async function refreshRequests() {

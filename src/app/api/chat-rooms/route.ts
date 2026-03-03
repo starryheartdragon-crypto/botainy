@@ -8,7 +8,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const serviceClient = createClient(supabaseUrl, serviceRoleKey)
 const authClient = createClient(supabaseUrl, supabaseAnonKey)
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const { data, error } = await serviceClient
       .from('chat_rooms')

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
 
 type NarrativeChoice = {
   text: string
@@ -138,6 +139,26 @@ function normalizeNarrative(payload: Partial<NarrativeResponse>): NarrativeRespo
 
 export async function POST(req: Request) {
   try {
+    const limit = checkRateLimit({
+      bucket: 'narrative-generate',
+      key: getClientIpFromHeaders(req.headers),
+      max: 20,
+      windowMs: 60_000,
+    })
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(limit),
+            'Retry-After': String(limit.retryAfterSeconds),
+          },
+        }
+      )
+    }
+
     const { identity, goalContext, tone, genreSetting, initialStakes, conflictType, vibeKeyword } = (await req.json()) as {
       identity?: string
       goalContext?: string
@@ -246,7 +267,7 @@ Rules:
     const parsed = tryParseJson<Partial<NarrativeResponse>>(content)
     const narrative = normalizeNarrative(parsed ?? {})
 
-    return NextResponse.json({ narrative })
+    return NextResponse.json({ narrative }, { headers: rateLimitHeaders(limit) })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ error: message }, { status: 500 })

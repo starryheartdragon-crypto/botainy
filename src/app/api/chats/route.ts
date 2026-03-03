@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: fallbackError.message }, { status: 500 })
     }
 
-    const normalizedChats = (chatsWithoutPersona || []).map((chat: any) => ({
+    const normalizedChats = (chatsWithoutPersona || []).map((chat: Record<string, unknown>) => ({
       ...chat,
       persona_id: null,
       personas: null,

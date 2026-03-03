@@ -1,9 +1,52 @@
 import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit'
 
 type Message = { role: string; content: string }
 
-export async function POST(req: Request) {
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const authClient = createClient(supabaseUrl, supabaseAnonKey)
+
+export async function POST(req: NextRequest) {
   try {
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser(token)
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const limit = checkRateLimit({
+      bucket: 'openrouter',
+      key: user.id,
+      max: 30,
+      windowMs: 60_000,
+    })
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(limit),
+            'Retry-After': String(limit.retryAfterSeconds),
+          },
+        }
+      )
+    }
+
     const body = await req.json()
     const messages: Message[] = body.messages
     const model = body.model || 'gpt-4o-mini'
@@ -28,7 +71,10 @@ export async function POST(req: Request) {
     })
 
     const data = await resp.json()
-    return NextResponse.json(data, { status: resp.status })
+    return NextResponse.json(data, {
+      status: resp.status,
+      headers: rateLimitHeaders(limit),
+    })
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }

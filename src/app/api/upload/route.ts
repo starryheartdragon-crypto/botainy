@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,6 +23,26 @@ export async function POST(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const limit = checkRateLimit({
+      bucket: 'upload',
+      key: user.id,
+      max: 20,
+      windowMs: 60_000,
+    })
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many uploads. Please try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(limit),
+            'Retry-After': String(limit.retryAfterSeconds),
+          },
+        }
+      )
     }
 
     const formData = await req.formData()
@@ -47,7 +68,7 @@ export async function POST(req: NextRequest) {
     
     const buffer = await file.arrayBuffer()
     let usedBucket = bucket
-    let { data, error } = await serviceClient.storage
+    let { error } = await serviceClient.storage
       .from(usedBucket)
       .upload(filePath, buffer, { upsert: true, contentType: file.type })
 
@@ -55,7 +76,6 @@ export async function POST(req: NextRequest) {
       const fallbackAttempt = await serviceClient.storage
         .from('avatars')
         .upload(filePath, buffer, { upsert: true, contentType: file.type })
-      data = fallbackAttempt.data
       error = fallbackAttempt.error
       usedBucket = 'avatars'
     }
@@ -72,10 +92,13 @@ export async function POST(req: NextRequest) {
       .from(usedBucket)
       .getPublicUrl(filePath)
 
-    return NextResponse.json({
-      url: urlData.publicUrl,
-      path: filePath,
-    })
+    return NextResponse.json(
+      {
+        url: urlData.publicUrl,
+        path: filePath,
+      },
+      { headers: rateLimitHeaders(limit) }
+    )
   } catch (err: unknown) {
     console.error('[Upload] Exception:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
