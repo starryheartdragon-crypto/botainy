@@ -1,0 +1,107 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
+import { supabase } from '@/lib/supabase'
+
+export function LoginForm() {
+  const router = useRouter()
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const normalizedIdentifier = identifier.trim()
+      const isEmail = normalizedIdentifier.includes('@')
+      let emailToUse = normalizedIdentifier
+
+      if (!isEmail) {
+        const { data: userRow, error: lookupError } = await supabase
+          .from('users')
+          .select('email')
+          .ilike('username', normalizedIdentifier)
+          .maybeSingle()
+
+        if (lookupError) {
+          throw lookupError
+        }
+
+        if (!userRow?.email) {
+          throw new Error('Invalid login credentials')
+        }
+
+        emailToUse = userRow.email
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password,
+      })
+
+      if (error) throw error
+
+      toast.success('Logged in successfully!')
+      router.push('/dashboard')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed'
+      toast.error(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleLogin} className="space-y-4 w-full max-w-md">
+      <div>
+        <label htmlFor="identifier" className="block text-sm font-medium text-gray-300 mb-1">
+          Email or Username
+        </label>
+        <input
+          id="identifier"
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="your@email.com or username"
+          required
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+          required
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-full font-semibold transition duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+      >
+        {loading ? 'Logging in...' : 'Sign In'}
+      </button>
+
+      <p className="text-center text-gray-400 text-sm">
+        Don't have an account?{' '}
+        <Link href="/signup" className="text-purple-400 hover:text-purple-300 font-semibold">
+          Sign up
+        </Link>
+      </p>
+    </form>
+  )
+}
