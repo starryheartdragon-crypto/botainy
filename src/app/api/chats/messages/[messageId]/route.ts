@@ -69,8 +69,8 @@ export async function PATCH(
     }
 
     return NextResponse.json(updated)
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
@@ -109,7 +109,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }

@@ -8,6 +8,14 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const authClient = createClient(supabaseUrl, supabaseAnonKey)
 const serviceClient = createClient(supabaseUrl, serviceRoleKey)
 
+type ConnectionRow = {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: string
+  created_at?: string
+}
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
@@ -49,8 +57,8 @@ export async function PATCH(
       }
     }
 
-    let byIdConnection: any = null
-    let fetchError: any = null
+    let byIdConnection: ConnectionRow | null = null
+    let fetchError: { message?: string } | null = null
     if (isUuid(connectionId)) {
       const res = await serviceClient
         .from('user_connections')
@@ -81,7 +89,7 @@ export async function PATCH(
         return NextResponse.json({ error: pairError.message }, { status: 500 })
       }
 
-      connection = pairRows?.[0] ?? null
+      connection = (pairRows?.[0] as ConnectionRow | undefined) ?? null
     }
 
     if (!connection) {
@@ -159,7 +167,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
