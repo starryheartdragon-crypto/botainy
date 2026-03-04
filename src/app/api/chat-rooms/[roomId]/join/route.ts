@@ -26,10 +26,26 @@ async function getAuthUser(req: NextRequest) {
   return user
 }
 
+async function isBannedUser(userId: string) {
+  const { data, error } = await serviceClient
+    .from('users')
+    .select('is_banned')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return !!data?.is_banned
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const banned = await isBannedUser(user.id)
+    if (banned) {
+      return NextResponse.json({ error: 'You are banned from chat rooms' }, { status: 403 })
+    }
 
     const { roomId: rawRoomId } = await params
     const roomId = normalizeRoomId(rawRoomId)

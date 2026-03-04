@@ -145,6 +145,40 @@ export default function ConnectionsPage() {
     }
   }
 
+  const reportUser = async (targetUserId: string) => {
+    const reason = window.prompt('Why are you reporting this user?')?.trim() || ''
+    if (!reason) return
+
+    const token = await getToken()
+    if (!token) return
+
+    try {
+      setBusyId(`report:${targetUserId}`)
+
+      const resp = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetType: 'user',
+          targetId: targetUserId,
+          reason,
+        }),
+      })
+
+      if (resp.ok) {
+        toast.success('Report submitted')
+      } else {
+        const err = await resp.json().catch(() => null)
+        toast.error(err?.error || 'Failed to submit report')
+      }
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -182,10 +216,17 @@ export default function ConnectionsPage() {
                   </div>
                   <button
                     onClick={() => sendRequest(user.id)}
-                    disabled={busyId === user.id}
+                    disabled={busyId === user.id || busyId === `report:${user.id}`}
                     className="px-3 py-1.5 text-sm rounded-full bg-purple-600 hover:bg-purple-700 disabled:opacity-60 transition"
                   >
                     {busyId === user.id ? '...' : 'Connect'}
+                  </button>
+                  <button
+                    onClick={() => reportUser(user.id)}
+                    disabled={busyId === `report:${user.id}` || busyId === user.id}
+                    className="px-3 py-1.5 text-sm rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-60 transition"
+                  >
+                    {busyId === `report:${user.id}` ? '...' : 'Report'}
                   </button>
                 </div>
               ))}
@@ -229,6 +270,15 @@ export default function ConnectionsPage() {
                         >
                           Decline
                         </button>
+                        {item.user?.id && (
+                          <button
+                            onClick={() => reportUser(item.user?.id || '')}
+                            disabled={busyId === `report:${item.user?.id || ''}`}
+                            className="px-3 py-1.5 text-sm rounded-full bg-gray-700 hover:bg-gray-600 disabled:opacity-60"
+                          >
+                            {busyId === `report:${item.user?.id || ''}` ? '...' : 'Report'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -260,6 +310,15 @@ export default function ConnectionsPage() {
                       >
                         Remove
                       </button>
+                      {item.user?.id && (
+                        <button
+                          onClick={() => reportUser(item.user?.id || '')}
+                          disabled={busyId === `report:${item.user?.id || ''}`}
+                          className="px-3 py-1.5 text-sm rounded-full bg-gray-800 hover:bg-gray-700 disabled:opacity-60"
+                        >
+                          {busyId === `report:${item.user?.id || ''}` ? '...' : 'Report'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -290,6 +349,15 @@ export default function ConnectionsPage() {
                       >
                         Cancel
                       </button>
+                      {item.user?.id && (
+                        <button
+                          onClick={() => reportUser(item.user?.id || '')}
+                          disabled={busyId === `report:${item.user?.id || ''}`}
+                          className="px-3 py-1.5 text-sm rounded-full bg-gray-800 hover:bg-gray-700 disabled:opacity-60"
+                        >
+                          {busyId === `report:${item.user?.id || ''}` ? '...' : 'Report'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

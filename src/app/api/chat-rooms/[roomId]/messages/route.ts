@@ -147,6 +147,20 @@ async function ensureMember(roomId: string, userId: string) {
   return !!data
 }
 
+async function getModerationFlags(userId: string) {
+  const { data, error } = await serviceClient
+    .from('users')
+    .select('is_banned, is_silenced')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return {
+    isBanned: !!data?.is_banned,
+    isSilenced: !!data?.is_silenced,
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   try {
     const user = await getAuthUser(req)
@@ -178,6 +192,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const moderation = await getModerationFlags(user.id)
+    if (moderation.isBanned) {
+      return NextResponse.json({ error: 'You are banned from chat rooms' }, { status: 403 })
+    }
+
+    if (moderation.isSilenced) {
+      return NextResponse.json({ error: 'You are silenced and cannot send chat room messages' }, { status: 403 })
+    }
 
     const { roomId: rawRoomId } = await params
     const roomId = normalizeRoomId(rawRoomId)

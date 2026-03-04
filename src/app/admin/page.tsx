@@ -51,6 +51,32 @@ type ModerationRequestRow = {
   status: "pending" | "reviewed" | "approved" | "rejected";
 };
 
+async function getAccessToken() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
+
+async function fetchAdminResource(resource: "reports" | "bots" | "users") {
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    throw new Error("Missing access token");
+  }
+
+  const resp = await fetch(`/api/admin/moderation/data?resource=${resource}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = await resp.json();
+  if (!resp.ok) {
+    throw new Error(payload?.error || `Failed to load ${resource}`);
+  }
+
+  return payload;
+}
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -151,15 +177,49 @@ export default function AdminPage() {
 function ReportsTab() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
+
+  async function refreshReports() {
+    try {
+      const payload = await fetchAdminResource("reports");
+      setReports(payload?.reports || []);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to load reports");
+      setReports([]);
+    }
+  }
+
   useEffect(() => {
-    supabase.from("reports").select("*,reporter_id,reported_user_id,reported_bot_id").order("created_at", { ascending: false }).then(({ data }) => setReports(data || []));
+    refreshReports();
   }, []);
+
   async function handleAction(id: string, status: "resolved" | "rejected") {
     setLoading(id + status);
-    await supabase.from("reports").update({ status, resolved_at: new Date().toISOString() }).eq("id", id);
-    const { data } = await supabase.from("reports").select("*,reporter_id,reported_user_id,reported_bot_id").order("created_at", { ascending: false });
-    setReports(data || []);
-    setLoading(null);
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert("Missing access token");
+        return;
+      }
+
+      const resp = await fetch(`/api/admin/reports/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      const payload = await resp.json();
+      if (!resp.ok) {
+        alert(payload?.error || "Failed to update report");
+        return;
+      }
+
+      await refreshReports();
+    } finally {
+      setLoading(null);
+    }
   }
   return (
     <div>
@@ -189,8 +249,19 @@ function BotsTab() {
   const [bots, setBots] = useState<BotRow[]>([]);
   const [modReason, setModReason] = useState<{[id:string]:string}>({});
   const [modLoading, setModLoading] = useState<string | null>(null);
+
+  async function refreshBots() {
+    try {
+      const payload = await fetchAdminResource("bots");
+      setBots(payload?.bots || []);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to load bots");
+      setBots([]);
+    }
+  }
+
   useEffect(() => {
-    supabase.from("bots").select("*").order("created_at", { ascending: false }).then(({ data }) => setBots(data || []));
+    refreshBots();
   }, []);
 
   async function handleModAction(bot: BotRow, action: "private"|"delete") {
@@ -199,33 +270,38 @@ function BotsTab() {
       return;
     }
     setModLoading(bot.id + action);
-    let notifMsg = "";
-    if (action === "private") {
-      await supabase.from("bots").update({ is_published: false }).eq("id", bot.id);
-      notifMsg = `Your bot '${bot.name}' was set to private by an admin. Reason: ${modReason[bot.id]}`;
-    } else if (action === "delete") {
-      await supabase.from("bots").delete().eq("id", bot.id);
-      notifMsg = `Your bot '${bot.name}' was deleted by an admin. Reason: ${modReason[bot.id]}`;
-    }
-    // Log mod action for audit/user notification
-    await supabase.from("mod_actions").insert({
-      bot_id: bot.id,
-      user_id: bot.creator_id,
-      action,
-      explanation: modReason[bot.id],
-    });
-    // Send notification to user
-    if (notifMsg) {
-      await supabase.from("notifications").insert({
-        user_id: bot.creator_id,
-        message: notifMsg,
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert("Missing access token");
+        return;
+      }
+
+      const resp = await fetch("/api/admin/moderation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          targetType: "bot",
+          targetId: bot.id,
+          action: action === "private" ? "silence" : "delete",
+          explanation: modReason[bot.id],
+        }),
       });
+
+      const payload = await resp.json();
+      if (!resp.ok) {
+        alert(payload?.error || "Failed moderation action");
+        return;
+      }
+
+      setModReason(r => ({ ...r, [bot.id]: "" }));
+      await refreshBots();
+    } finally {
+      setModLoading(null);
     }
-    setModLoading(null);
-    setModReason(r => ({ ...r, [bot.id]: "" }));
-    // Refresh bots
-    const { data } = await supabase.from("bots").select("*").order("created_at", { ascending: false });
-    setBots(data || []);
   }
 
   return (
@@ -271,39 +347,52 @@ function BotsTab() {
 function UsersTab() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
+
+  async function refreshUsers() {
+    try {
+      const payload = await fetchAdminResource("users");
+      setUsers(payload?.users || []);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to load users");
+      setUsers([]);
+    }
+  }
+
   useEffect(() => {
-    supabase.from("users").select("id,username,email,is_banned,is_silenced,is_admin").order("created_at", { ascending: false }).then(({ data }) => setUsers(data || []));
+    refreshUsers();
   }, []);
   async function handleUserAction(id: string, action: "ban"|"unban"|"silence"|"unsilence") {
     setLoading(id + action);
-    const update: { is_banned?: boolean; is_silenced?: boolean } = {};
-    let notifMsg = "";
-    if (action === "ban") {
-      update.is_banned = true;
-      notifMsg = "You have been banned by an admin. You can no longer participate in chat rooms.";
-    }
-    if (action === "unban") {
-      update.is_banned = false;
-      notifMsg = "Your ban has been lifted by an admin. You may now participate in chat rooms again.";
-    }
-    if (action === "silence") {
-      update.is_silenced = true;
-      notifMsg = "You have been silenced by an admin. You cannot send messages in chat rooms.";
-    }
-    if (action === "unsilence") {
-      update.is_silenced = false;
-      notifMsg = "Your silence has been lifted by an admin. You may now send messages in chat rooms again.";
-    }
-    await supabase.from("users").update(update).eq("id", id);
-    if (notifMsg) {
-      await supabase.from("notifications").insert({
-        user_id: id,
-        message: notifMsg,
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert("Missing access token");
+        return;
+      }
+
+      const resp = await fetch("/api/admin/moderation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          targetType: "user",
+          targetId: id,
+          action,
+        }),
       });
+
+      const payload = await resp.json();
+      if (!resp.ok) {
+        alert(payload?.error || "Failed moderation action");
+        return;
+      }
+
+      await refreshUsers();
+    } finally {
+      setLoading(null);
     }
-    const { data } = await supabase.from("users").select("id,username,email,is_banned,is_silenced,is_admin").order("created_at", { ascending: false });
-    setUsers(data || []);
-    setLoading(null);
   }
   return (
     <div>

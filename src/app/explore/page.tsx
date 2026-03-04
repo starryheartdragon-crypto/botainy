@@ -144,6 +144,7 @@ export default function ExplorePage() {
   const [narrativeError, setNarrativeError] = useState<string | null>(null)
   const [loadingBots, setLoadingBots] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
+  const [reporting, setReporting] = useState<string | null>(null)
   const [personaPromptOpen, setPersonaPromptOpen] = useState(false)
   const [pendingBotId, setPendingBotId] = useState<string | null>(null)
   const [creatorBadges, setCreatorBadges] = useState<Record<string, CreatorBadge>>({})
@@ -451,6 +452,50 @@ export default function ExplorePage() {
   const handleClickStartChat = (botId: string) => {
     setPendingBotId(botId)
     setPersonaPromptOpen(true)
+  }
+
+  const handleReport = async (targetType: 'bot' | 'user', targetId: string) => {
+    const reason = window.prompt('Why are you reporting this?')?.trim() || ''
+    if (!reason) return
+
+    try {
+      setReporting(`${targetType}:${targetId}`)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        router.push('/login')
+        return
+      }
+
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          targetType,
+          targetId,
+          reason,
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok) {
+        alert(payload?.error || 'Failed to submit report')
+        return
+      }
+
+      alert('Report submitted. Thanks for helping keep the community safe.')
+    } catch (error) {
+      console.error('Failed to submit report:', error)
+      alert('Failed to submit report')
+    } finally {
+      setReporting(null)
+    }
   }
 
   return (
@@ -792,6 +837,22 @@ export default function ExplorePage() {
               >
                 {loading === b.id ? 'Starting...' : 'Start Chat'}
               </button>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleReport('bot', b.id)}
+                  disabled={reporting === `bot:${b.id}`}
+                  className="px-3 py-2 text-xs rounded-full bg-gray-700 text-gray-100 hover:bg-gray-600 disabled:opacity-60 transition"
+                >
+                  {reporting === `bot:${b.id}` ? 'Reporting...' : 'Report Bot'}
+                </button>
+                <button
+                  onClick={() => handleReport('user', b.creator_id)}
+                  disabled={reporting === `user:${b.creator_id}`}
+                  className="px-3 py-2 text-xs rounded-full bg-gray-700 text-gray-100 hover:bg-gray-600 disabled:opacity-60 transition"
+                >
+                  {reporting === `user:${b.creator_id}` ? 'Reporting...' : 'Report Creator'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
