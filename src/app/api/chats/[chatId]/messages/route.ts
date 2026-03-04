@@ -243,6 +243,7 @@ export async function POST(
     const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || 'openrouter/auto'
     let botResponseContent: string | null = null
     let openrouterFailureReason: string | null = null
+    let openrouterFailureStatus: number | null = null
 
     if (!openrouterApiKey) {
       openrouterFailureReason = 'OPENROUTER_API_KEY is not configured on the server'
@@ -274,8 +275,10 @@ export async function POST(
           botResponseContent = openrouterData?.choices?.[0]?.message?.content?.trim() || null
           if (!botResponseContent) {
             openrouterFailureReason = 'OpenRouter returned an empty response'
+            openrouterFailureStatus = openrouterResp.status
           }
         } else {
+          openrouterFailureStatus = openrouterResp.status
           openrouterFailureReason =
             getErrorMessage(openrouterData?.error, '') ||
             getErrorMessage(openrouterData?.message, '') ||
@@ -302,7 +305,10 @@ export async function POST(
       return NextResponse.json({
         userMessage,
         botMessage: null,
-        warning: openrouterFailureReason || 'Bot response could not be generated',
+        warning:
+          openrouterFailureStatus !== null
+            ? `[OpenRouter ${openrouterFailureStatus}] ${openrouterFailureReason || 'Bot response could not be generated'} (model: ${openrouterModel})`
+            : `${openrouterFailureReason || 'Bot response could not be generated'} (model: ${openrouterModel})`,
       })
     }
 
