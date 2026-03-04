@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { AuthApiError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 export function LoginForm() {
@@ -12,6 +13,27 @@ export function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const getFriendlyLoginError = (error: unknown) => {
+    if (error instanceof AuthApiError) {
+      const message = error.message.toLowerCase()
+      if (message.includes('email not confirmed')) {
+        return 'Your email is not verified yet. Check your inbox and verify your account before signing in.'
+      }
+      if (message.includes('invalid login credentials')) {
+        return 'Incorrect email/username or password.'
+      }
+      if (message.includes('rate limit')) {
+        return 'Too many login attempts. Please wait a moment and try again.'
+      }
+    }
+
+    if (error instanceof Error && error.message === 'Invalid login credentials') {
+      return 'Incorrect email/username or password.'
+    }
+
+    return error instanceof Error ? error.message : 'Login failed'
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -19,13 +41,13 @@ export function LoginForm() {
     try {
       const normalizedIdentifier = identifier.trim()
       const isEmail = normalizedIdentifier.includes('@')
-      let emailToUse = normalizedIdentifier
+      let emailToUse = isEmail ? normalizedIdentifier.toLowerCase() : normalizedIdentifier
 
       if (!isEmail) {
         const { data: userRow, error: lookupError } = await supabase
           .from('users')
           .select('email')
-          .ilike('username', normalizedIdentifier)
+          .ilike('username', normalizedIdentifier.toLowerCase())
           .maybeSingle()
 
         if (lookupError) {
@@ -36,7 +58,7 @@ export function LoginForm() {
           throw new Error('Invalid login credentials')
         }
 
-        emailToUse = userRow.email
+        emailToUse = userRow.email.toLowerCase()
       }
 
       const { error } = await supabase.auth.signInWithPassword({
@@ -49,7 +71,7 @@ export function LoginForm() {
       toast.success('Logged in successfully!')
       router.push('/dashboard')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed'
+      const message = getFriendlyLoginError(error)
       toast.error(message)
     } finally {
       setLoading(false)

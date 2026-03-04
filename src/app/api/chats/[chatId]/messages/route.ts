@@ -12,7 +12,7 @@ type ChatWithRelations = {
 }
 type OpenRouterResponse = {
   choices?: Array<{ message?: { content?: string } }>
-  error?: unknown
+  error?: { message?: string } | string | unknown
   message?: unknown
 }
 
@@ -52,6 +52,23 @@ function isLikelySenderIdConstraintError(error: unknown) {
       message.includes('is not present in table')
     )
   )
+}
+
+function resolveOpenRouterApiKey() {
+  const key = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY
+  return key && key.trim().length > 0 ? key.trim() : null
+}
+
+function getOpenRouterReferer() {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
+  if (configured) return configured
+
+  const vercelUrl = process.env.VERCEL_URL?.trim()
+  if (vercelUrl) {
+    return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`
+  }
+
+  return 'http://localhost:3000'
 }
 
 async function getAuthUser(req: NextRequest) {
@@ -222,45 +239,71 @@ export async function POST(
       ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
     const systemPrompt = `You are ${botInfo.name}. ${botInfo.personality}\n${personaPrompt}`
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY
-    let botResponseContent = "I’m having trouble responding right now. Please try again in a moment."
+    const openrouterApiKey = resolveOpenRouterApiKey()
+    const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || 'openrouter/auto'
+    let botResponseContent: string | null = null
+    let openrouterFailureReason: string | null = null
 
-    if (openrouterApiKey) {
+    if (!openrouterApiKey) {
+      openrouterFailureReason = 'OPENROUTER_API_KEY is not configured on the server'
+      console.error(openrouterFailureReason)
+    } else {
       try {
         const openrouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${openrouterApiKey}`,
+            'HTTP-Referer': getOpenRouterReferer(),
+            'X-Title': 'Botainy',
           },
           body: JSON.stringify({
             messages: [
               { role: 'system', content: systemPrompt },
               ...messageHistory,
             ],
-            model: 'openai/gpt-4o-mini',
+            model: openrouterModel,
           }),
         })
 
         const openrouterData: OpenRouterResponse | null = await openrouterResp
           .json()
           .catch(() => null)
+
         if (openrouterResp.ok) {
-          botResponseContent = openrouterData?.choices?.[0]?.message?.content || "I didn't understand that."
+          botResponseContent = openrouterData?.choices?.[0]?.message?.content?.trim() || null
+          if (!botResponseContent) {
+            openrouterFailureReason = 'OpenRouter returned an empty response'
+          }
         } else {
+          openrouterFailureReason =
+            getErrorMessage(openrouterData?.error, '') ||
+            getErrorMessage(openrouterData?.message, '') ||
+            `OpenRouter returned status ${openrouterResp.status}`
+
           console.error('OpenRouter returned non-OK response:', {
             status: openrouterResp.status,
-            error:
-              getErrorMessage(openrouterData?.error, '') ||
-              getErrorMessage(openrouterData?.message, '') ||
-              'Unknown upstream error',
+            error: openrouterFailureReason,
+            model: openrouterModel,
           })
         }
       } catch (openrouterError) {
-        console.error('OpenRouter request failed:', getErrorMessage(openrouterError, 'fetch failed'))
+        openrouterFailureReason = getErrorMessage(openrouterError, 'OpenRouter request failed')
+        console.error('OpenRouter request failed:', openrouterFailureReason)
       }
-    } else {
-      console.error('OPENROUTER_API_KEY is not configured')
+    }
+
+    if (!botResponseContent) {
+      await serviceClient
+        .from('chats')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', chatId)
+
+      return NextResponse.json({
+        userMessage,
+        botMessage: null,
+        warning: openrouterFailureReason || 'Bot response could not be generated',
+      })
     }
 
     // Save bot response

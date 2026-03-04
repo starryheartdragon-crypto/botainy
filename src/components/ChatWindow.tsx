@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
+import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { ChatMessage, Bot } from '@/types'
 import { MessageList } from './MessageList'
@@ -234,12 +235,20 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
           message,
           body: responseBody,
         })
+
+        if (resp.status === 401) {
+          toast.error('Your session has expired. Please sign in again.')
+        } else {
+          toast.error(message)
+        }
+
         return
       }
 
       const data = (await resp.json()) as {
         userMessage?: MessagePayload | null
         botMessage?: MessagePayload | null
+        warning?: string
       }
 
       const newMessages: MessagePayload[] = []
@@ -253,8 +262,13 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       if (newMessages.length) {
         upsertMessages(newMessages)
       }
+
+      if (data.warning) {
+        toast.error(data.warning)
+      }
     } catch (error) {
       console.warn('Error sending message:', error)
+      toast.error('Failed to send message. Please try again.')
     } finally {
       setLoading(false)
     }
