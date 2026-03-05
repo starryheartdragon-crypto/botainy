@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit'
+import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
 
 type Message = { role: string; content: string }
 
@@ -49,14 +50,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const messages: Message[] = body.messages
-    const model = body.model || 'gpt-4o-mini'
+    const model = typeof body.model === 'string' && body.model.trim()
+      ? body.model.trim()
+      : resolveOpenRouterModel('openrouter/auto')
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: 'Missing or invalid messages array' }, { status: 400 })
     }
 
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-    if (!OPENROUTER_API_KEY) {
+    const openrouterApiKey = resolveOpenRouterApiKey()
+    if (!openrouterApiKey) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
     }
 
@@ -65,12 +68,24 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${openrouterApiKey}`,
+        'HTTP-Referer': resolveOpenRouterReferer(),
+        'X-Title': 'Botainy',
       },
       body: JSON.stringify({ model, messages }),
     })
 
-    const data = await resp.json()
+    const data = await resp.json().catch(() => null)
+    if (!resp.ok) {
+      return NextResponse.json(
+        { error: getOpenRouterErrorMessage(data, `OpenRouter request failed with status ${resp.status}`), model },
+        {
+          status: resp.status,
+          headers: rateLimitHeaders(limit),
+        }
+      )
+    }
+
     return NextResponse.json(data, {
       status: resp.status,
       headers: rateLimitHeaders(limit),

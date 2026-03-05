@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
+import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
 
 type Relationship = {
   affection: number
@@ -150,7 +151,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Narrative context and in-character response are required.' }, { status: 400 })
     }
 
-    const key = process.env.OPENROUTER_API_KEY
+    const key = resolveOpenRouterApiKey()
+    const openrouterModel = resolveOpenRouterModel('openrouter/auto')
     if (!key) {
       const fallbackNpc = narrative.npcs[0]?.name || 'Advisor'
       return NextResponse.json(
@@ -228,9 +230,11 @@ ${userResponse.trim()}`
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${key}`,
+        'HTTP-Referer': resolveOpenRouterReferer(),
+        'X-Title': 'Botainy',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: openrouterModel,
         temperature: 0.85,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -243,8 +247,11 @@ ${userResponse.trim()}`
     const content = data?.choices?.[0]?.message?.content
 
     if (!resp.ok || !content) {
+      const fallbackMessage = !resp.ok
+        ? `OpenRouter request failed with status ${resp.status}`
+        : 'OpenRouter returned an empty response.'
       return NextResponse.json(
-        { error: data?.error?.message || 'Failed to continue narrative turn.' },
+        { error: getOpenRouterErrorMessage(data, fallbackMessage), model: openrouterModel },
         { status: resp.status || 500 }
       )
     }

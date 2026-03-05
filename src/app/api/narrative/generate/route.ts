@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
+import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
 
 type NarrativeChoice = {
   text: string
@@ -176,8 +177,10 @@ export async function POST(req: Request) {
       )
     }
 
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-    if (!OPENROUTER_API_KEY) {
+    const openrouterApiKey = resolveOpenRouterApiKey()
+    const openrouterModel = resolveOpenRouterModel('openrouter/auto')
+
+    if (!openrouterApiKey) {
       return NextResponse.json({ error: 'Server not configured.' }, { status: 500 })
     }
 
@@ -242,10 +245,12 @@ Rules:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${openrouterApiKey}`,
+        'HTTP-Referer': resolveOpenRouterReferer(),
+        'X-Title': 'Botainy',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: openrouterModel,
         temperature: 0.9,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -258,8 +263,11 @@ Rules:
     const content = data?.choices?.[0]?.message?.content
 
     if (!resp.ok || !content) {
+      const fallbackMessage = !resp.ok
+        ? `OpenRouter request failed with status ${resp.status}`
+        : 'OpenRouter returned an empty response.'
       return NextResponse.json(
-        { error: data?.error?.message || 'Narrative generation failed.' },
+        { error: getOpenRouterErrorMessage(data, fallbackMessage), model: openrouterModel },
         { status: resp.status || 500 }
       )
     }

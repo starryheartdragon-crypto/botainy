@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string }
@@ -52,23 +53,6 @@ function isLikelySenderIdConstraintError(error: unknown) {
       message.includes('is not present in table')
     )
   )
-}
-
-function resolveOpenRouterApiKey() {
-  const key = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY
-  return key && key.trim().length > 0 ? key.trim() : null
-}
-
-function getOpenRouterReferer() {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
-  if (configured) return configured
-
-  const vercelUrl = process.env.VERCEL_URL?.trim()
-  if (vercelUrl) {
-    return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`
-  }
-
-  return 'http://localhost:3000'
 }
 
 async function getAuthUser(req: NextRequest) {
@@ -240,7 +224,7 @@ export async function POST(
       : 'The user is chatting as themselves.'
     const systemPrompt = `You are ${botInfo.name}. ${botInfo.personality}\n${personaPrompt}`
     const openrouterApiKey = resolveOpenRouterApiKey()
-    const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || 'openrouter/auto'
+    const openrouterModel = resolveOpenRouterModel('openrouter/auto')
     let botResponseContent: string | null = null
     let openrouterFailureReason: string | null = null
     let openrouterFailureStatus: number | null = null
@@ -255,7 +239,7 @@ export async function POST(
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${openrouterApiKey}`,
-            'HTTP-Referer': getOpenRouterReferer(),
+            'HTTP-Referer': resolveOpenRouterReferer(),
             'X-Title': 'Botainy',
           },
           body: JSON.stringify({
@@ -279,10 +263,10 @@ export async function POST(
           }
         } else {
           openrouterFailureStatus = openrouterResp.status
-          openrouterFailureReason =
-            getErrorMessage(openrouterData?.error, '') ||
-            getErrorMessage(openrouterData?.message, '') ||
+          openrouterFailureReason = getOpenRouterErrorMessage(
+            openrouterData,
             `OpenRouter returned status ${openrouterResp.status}`
+          )
 
           console.error('OpenRouter returned non-OK response:', {
             status: openrouterResp.status,
