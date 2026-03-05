@@ -55,7 +55,7 @@ function isLikelySenderIdConstraintError(error: unknown) {
 }
 
 function resolveOpenRouterApiKey() {
-  const key = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY
+  const key = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY
   return key && key.trim().length > 0 ? key.trim() : null
 }
 
