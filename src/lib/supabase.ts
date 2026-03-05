@@ -2,15 +2,33 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 let supabaseClient: SupabaseClient | null = null
 
+const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const publicSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+function resolveSupabaseCredentials() {
+  const isServer = typeof window === 'undefined'
+  const supabaseUrl = publicSupabaseUrl ?? (isServer ? process.env.SUPABASE_URL : undefined)
+  const supabaseAnonKey = publicSupabaseAnonKey ?? (isServer ? process.env.SUPABASE_ANON_KEY : undefined)
+
+  if (supabaseUrl && supabaseAnonKey) {
+    return { supabaseUrl, supabaseAnonKey }
+  }
+
+  const missing: string[] = []
+  if (!supabaseUrl) {
+    missing.push(isServer ? 'NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL' : 'NEXT_PUBLIC_SUPABASE_URL')
+  }
+  if (!supabaseAnonKey) {
+    missing.push(isServer ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_ANON_KEY' : 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  }
+
+  const runtime = isServer ? 'server' : 'client'
+  throw new Error(`Missing Supabase env (${runtime}): ${missing.join(', ')}`)
+}
+
 function getSupabaseClient() {
   if (supabaseClient) return supabaseClient
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase environment variables are required.')
-  }
+  const { supabaseUrl, supabaseAnonKey } = resolveSupabaseCredentials()
 
   supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
