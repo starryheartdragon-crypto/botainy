@@ -2,13 +2,18 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 let supabaseClient: SupabaseClient | null = null
 
-const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const publicSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+function normalizeEnv(value: string | undefined) {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
+}
+
+const publicSupabaseUrl = normalizeEnv(process.env.NEXT_PUBLIC_SUPABASE_URL)
+const publicSupabaseAnonKey = normalizeEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 function resolveSupabaseCredentials() {
   const isServer = typeof window === 'undefined'
-  const supabaseUrl = publicSupabaseUrl ?? (isServer ? process.env.SUPABASE_URL : undefined)
-  const supabaseAnonKey = publicSupabaseAnonKey ?? (isServer ? process.env.SUPABASE_ANON_KEY : undefined)
+  const supabaseUrl = publicSupabaseUrl ?? (isServer ? normalizeEnv(process.env.SUPABASE_URL) : undefined)
+  const supabaseAnonKey = publicSupabaseAnonKey ?? (isServer ? normalizeEnv(process.env.SUPABASE_ANON_KEY) : undefined)
 
   if (supabaseUrl && supabaseAnonKey) {
     return { supabaseUrl, supabaseAnonKey }
@@ -23,7 +28,12 @@ function resolveSupabaseCredentials() {
   }
 
   const runtime = isServer ? 'server' : 'client'
-  throw new Error(`Missing Supabase env (${runtime}): ${missing.join(', ')}`)
+  const deploymentHint =
+    !isServer
+      ? ' NEXT_PUBLIC_* variables are injected at build time. Ensure they are set in the build environment (for example Cloudflare Pages Production and Preview), then trigger a fresh deploy.'
+      : ''
+
+  throw new Error(`Missing Supabase env (${runtime}): ${missing.join(', ')}.${deploymentHint}`)
 }
 
 function getSupabaseClient() {
