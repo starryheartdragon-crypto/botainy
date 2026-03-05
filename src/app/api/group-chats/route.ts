@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 const MAX_ADDITIONAL_USERS = 4
 const MAX_BOTS = 12
@@ -35,7 +35,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return { user: null }
   return { user }
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      const { data: membershipRows, error: membershipError } = await serviceClient
-        .from('group_chat_members')
+      const { data: membershipRows, error: membershipError } = await serviceClient()
+      .from('group_chat_members')
         .select('group_chat_id')
         .eq('user_id', user.id)
 
@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json([])
       }
 
-      const { data: memberChats, error: memberChatsError } = await serviceClient
-        .from('group_chats')
+      const { data: memberChats, error: memberChatsError } = await serviceClient()
+      .from('group_chats')
         .select('*, group_chat_members(count)')
         .eq('is_active', true)
         .in('id', memberGroupIds)
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get public/private group chats for group-chat feature only
-    const { data: publicChats, error: publicError } = await serviceClient
+    const { data: publicChats, error: publicError } = await serviceClient()
       .from('group_chats')
       .select('*, group_chat_members(count)')
       .eq('visibility', 'public')
@@ -96,8 +96,8 @@ export async function GET(req: NextRequest) {
     // Get user's private group chats if authenticated
     let userChats: GroupChat[] = []
     if (user) {
-      const { data: membershipRows, error: membershipError } = await serviceClient
-        .from('group_chat_members')
+      const { data: membershipRows, error: membershipError } = await serviceClient()
+      .from('group_chat_members')
         .select('group_chat_id')
         .eq('user_id', user.id)
 
@@ -109,8 +109,8 @@ export async function GET(req: NextRequest) {
         (row) => row.group_chat_id
       )
       if (memberGroupIds.length > 0) {
-        const { data, error: privateError } = await serviceClient
-        .from('group_chats')
+        const { data, error: privateError } = await serviceClient()
+      .from('group_chats')
         .select('*, group_chat_members(count)')
         .eq('visibility', 'private')
         .eq('is_active', true)
@@ -201,8 +201,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (additionalUserIds.length > 0) {
-      const { data: validUsers, error: usersError } = await serviceClient
-        .from('users')
+      const { data: validUsers, error: usersError } = await serviceClient()
+      .from('users')
         .select('id')
         .in('id', additionalUserIds)
 
@@ -232,8 +232,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (botIds.length > 0) {
-      const { data: bots, error: botsError } = await serviceClient
-        .from('bots')
+      const { data: bots, error: botsError } = await serviceClient()
+      .from('bots')
         .select('id, creator_id, is_published')
         .in('id', botIds)
 
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create group chat
-    const { data: groupChat, error: createError } = await serviceClient
+    const { data: groupChat, error: createError } = await serviceClient()
       .from('group_chats')
       .insert({
         name: name.trim(),
@@ -338,7 +338,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Add creator as member
-    await serviceClient
+    await serviceClient()
       .from('group_chat_members')
       .insert({
         group_chat_id: groupChat.id,
@@ -347,8 +347,8 @@ export async function POST(req: NextRequest) {
       })
 
     if (additionalUserIds.length > 0) {
-      const { error: membersError } = await serviceClient
-        .from('group_chat_members')
+      const { error: membersError } = await serviceClient()
+      .from('group_chat_members')
         .insert(
           additionalUserIds.map((memberId) => ({
             group_chat_id: groupChat.id,
@@ -363,8 +363,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (botIds.length > 0) {
-      const { error: botsInsertError } = await serviceClient
-        .from('group_chat_bots')
+      const { error: botsInsertError } = await serviceClient()
+      .from('group_chat_bots')
         .insert(
           botIds.map((botId) => ({
             group_chat_id: groupChat.id,

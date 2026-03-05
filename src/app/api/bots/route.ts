@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { BOT_UNIVERSES } from '@/lib/botUniverses'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 type CreateBotPayload = {
@@ -28,11 +28,11 @@ async function getUserFromAuthHeader(authHeader: string | null) {
     return { user: null, error: 'Unauthorized' }
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) {
     return { user: null, error: 'Unauthorized' }
@@ -56,9 +56,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-      let mineQuery = serviceClient
-        .from('bots')
+      const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+      let mineQuery = serviceClient()
+      .from('bots')
         .select('id,name,universe,description,personality,avatar_url,is_published,created_at')
         .eq('creator_id', user.id)
         .order('created_at', { ascending: false })
@@ -87,8 +87,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid bot universe' }, { status: 400 })
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-    let query = serviceClient
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+    let query = serviceClient()
       .from('bots')
       .select('id,name,description,personality,avatar_url,creator_id,universe')
       .eq('is_published', true)
@@ -166,8 +166,8 @@ export async function POST(req: NextRequest) {
         ? assembledPersonalitySections.join('\n\n')
         : characterProfile || personality
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-    const { data, error } = await serviceClient
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+    const { data, error } = await serviceClient()
       .from('bots')
       .insert({
         creator_id: user.id,

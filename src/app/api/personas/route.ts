@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 type CreatePersonaPayload = {
@@ -17,11 +17,11 @@ async function getUserFromAuthHeader(authHeader: string | null) {
     return { user: null, error: 'Unauthorized' }
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) {
     return { user: null, error: 'Unauthorized' }
@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-    const { data, error } = await serviceClient
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+    const { data, error } = await serviceClient()
       .from('personas')
       .select('id,name,description,avatar_url,created_at')
       .eq('user_id', user.id)
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-    const { data, error } = await serviceClient
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+    const { data, error } = await serviceClient()
       .from('personas')
       .insert({
         user_id: user.id,

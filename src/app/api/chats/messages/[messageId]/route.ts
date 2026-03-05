@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -16,7 +16,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -43,7 +43,7 @@ export async function PATCH(
     const { messageId } = await params
 
     // Check if user owns this message
-    const { data: message, error: fetchError } = await serviceClient
+    const { data: message, error: fetchError } = await serviceClient()
       .from('chat_messages')
       .select('id, sender_id')
       .eq('id', messageId)
@@ -54,7 +54,7 @@ export async function PATCH(
     }
 
     // Update message
-    const { data: updated, error: updateError } = await serviceClient
+    const { data: updated, error: updateError } = await serviceClient()
       .from('chat_messages')
       .update({
         content: content.trim(),
@@ -88,7 +88,7 @@ export async function DELETE(
     const { messageId } = await params
 
     // Check if user owns this message
-    const { data: message, error: fetchError } = await serviceClient
+    const { data: message, error: fetchError } = await serviceClient()
       .from('chat_messages')
       .select('id, sender_id')
       .eq('id', messageId)
@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     // Delete message
-    const { error: deleteError } = await serviceClient
+    const { error: deleteError } = await serviceClient()
       .from('chat_messages')
       .delete()
       .eq('id', messageId)

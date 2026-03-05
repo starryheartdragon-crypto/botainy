@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Start app for smoke (optional)
+        if: ${{ secrets.SMOKE_AUTH_TOKEN != '' && secrets.SMOKE_BOT_ID != '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+        run: |
+          npm run start > /tmp/next-start.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000 > /dev/null; then
+              echo "App is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App failed to start"
+          cat /tmp/next-start.log
+          exit 1
+
+      - name: Smoke test (optional)
+        if: ${{ secrets.SMOKE_AUTH_TOKEN != '' && secrets.SMOKE_BOT_ID != '' }}
+        env:
+          SMOKE_BASE_URL: http://127.0.0.1:3000
+          SMOKE_AUTH_TOKEN: ${{ secrets.SMOKE_AUTH_TOKEN }}
+          SMOKE_BOT_ID: ${{ secrets.SMOKE_BOT_ID }}
+          SMOKE_PERSONA_ID: ${{ secrets.SMOKE_PERSONA_ID }}
+        run: npm run smoke

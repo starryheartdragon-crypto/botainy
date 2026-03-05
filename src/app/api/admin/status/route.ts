@@ -10,19 +10,19 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing access token" }, { status: 401 })
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
       return NextResponse.json({ error: "Server not configured" }, { status: 500 })
     }
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey)
+    const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
     const {
       data: { user },
       error: authError,
-    } = await authClient.auth.getUser(token)
+    } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -16,14 +16,14 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
 }
 
 async function ensureGroupMember(groupChatId: string, userId: string) {
-  const { data, error } = await serviceClient
+  const { data, error } = await serviceClient()
     .from('group_chat_members')
     .select('id')
     .eq('group_chat_id', groupChatId)
@@ -46,7 +46,7 @@ export async function GET(
     const member = await ensureGroupMember(groupChatId, user.id)
     if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('group_chat_messages')
       .select('id, group_chat_id, sender_id, content, created_at, updated_at')
       .eq('group_chat_id', groupChatId)
@@ -79,7 +79,7 @@ export async function POST(
       return NextResponse.json({ error: 'Message content required' }, { status: 400 })
     }
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('group_chat_messages')
       .insert({
         group_chat_id: groupChatId,

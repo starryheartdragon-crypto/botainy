@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 type UserAction = 'ban' | 'unban' | 'silence' | 'unsilence'
 type BotAction = 'silence' | 'delete'
@@ -33,7 +33,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -45,8 +45,8 @@ async function requireAdmin(req: NextRequest) {
     return { user: null, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }
 
-  const { data: userRow, error: userError } = await serviceClient
-    .from('users')
+  const { data: userRow, error: userError } = await serviceClient()
+      .from('users')
     .select('is_admin')
     .eq('id', user.id)
     .maybeSingle()
@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
       if (action === 'silence') updateData.is_silenced = true
       if (action === 'unsilence') updateData.is_silenced = false
 
-      const { data: updatedUser, error: updateError } = await serviceClient
-        .from('users')
+      const { data: updatedUser, error: updateError } = await serviceClient()
+      .from('users')
         .update(updateData)
         .eq('id', targetId)
         .select('id, username, email, is_banned, is_silenced, is_admin')
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
 
-      await serviceClient.from('mod_actions').insert({
+      await serviceClient().from('mod_actions').insert({
         actor_id: adminUser.id,
         user_id: targetId,
         action,
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
         ? `${getUserNotification(action)} Reason: ${explanation}`
         : getUserNotification(action)
 
-      await serviceClient.from('notifications').insert({
+      await serviceClient().from('notifications').insert({
         user_id: targetId,
         message: notificationMessage,
       })
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid bot moderation action' }, { status: 400 })
     }
 
-    const { data: bot, error: botFetchError } = await serviceClient
+    const { data: bot, error: botFetchError } = await serviceClient()
       .from('bots')
       .select('id, name, creator_id')
       .eq('id', targetId)
@@ -163,8 +163,8 @@ export async function POST(req: NextRequest) {
     } | null = null
 
     if (action === 'silence') {
-      const { data: silencedBot, error: botUpdateError } = await serviceClient
-        .from('bots')
+      const { data: silencedBot, error: botUpdateError } = await serviceClient()
+      .from('bots')
         .update({ is_published: false })
         .eq('id', targetId)
         .select('id, name, creator_id, description, is_published')
@@ -176,8 +176,8 @@ export async function POST(req: NextRequest) {
 
       updatedBot = silencedBot
     } else {
-      const { error: botDeleteError } = await serviceClient
-        .from('bots')
+      const { error: botDeleteError } = await serviceClient()
+      .from('bots')
         .delete()
         .eq('id', targetId)
 
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await serviceClient.from('mod_actions').insert({
+    await serviceClient().from('mod_actions').insert({
       actor_id: adminUser.id,
       user_id: bot.creator_id,
       bot_id: targetId,
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
         ? `Your bot '${bot.name}' was set to private by an admin.`
         : `Your bot '${bot.name}' was deleted by an admin.`
 
-    await serviceClient.from('notifications').insert({
+    await serviceClient().from('notifications').insert({
       user_id: bot.creator_id,
       message: notificationMessage,
     })

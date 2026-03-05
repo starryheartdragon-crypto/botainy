@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function GET(req: NextRequest) {
@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
     }
 
     console.log('[Profile GET] Validating token')
-    const authClient = createClient(supabaseUrl, supabaseAnonKey)
-    const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+    const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+    const { data: { user }, error: authError } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       console.log('[Profile GET] Token validation failed:', authError?.message)
@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     console.log('[Profile GET] User ID:', user.id)
     
     // Use service role to avoid RLS issues
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-    const { data: profile, error } = await serviceClient
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+    const { data: profile, error } = await serviceClient()
       .from('users')
       .select('id, username, bio, avatar_url')
       .eq('id', user.id)
@@ -68,8 +68,8 @@ export async function PUT(req: NextRequest) {
     }
 
     console.log('[Profile PUT] Token extracted, validating...')
-    const authClient = createClient(supabaseUrl, supabaseAnonKey)
-    const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+    const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+    const { data: { user }, error: authError } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       console.log('[Profile PUT] Auth failed:', authError?.message)
@@ -82,10 +82,10 @@ export async function PUT(req: NextRequest) {
     console.log('[Profile PUT] Update data:', { username, bio, has_avatar: !!avatar_url })
 
     // Use service role to update (bypasses RLS)
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
     console.log('[Profile PUT] Updating user record with service role...')
     
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('users')
       .update({
         username,

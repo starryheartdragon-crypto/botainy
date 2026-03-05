@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -17,7 +17,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return { user: null }
   return { user }
@@ -35,7 +35,7 @@ export async function POST(
 
     const { groupChatId } = await params
 
-    const { data: chat, error: chatError } = await serviceClient
+    const { data: chat, error: chatError } = await serviceClient()
       .from('group_chats')
       .select('id, visibility, is_active, max_members')
       .eq('id', groupChatId)
@@ -45,7 +45,7 @@ export async function POST(
       return NextResponse.json({ error: 'Group not found' }, { status: 404 })
     }
 
-    const { count: memberCount } = await serviceClient
+    const { count: memberCount } = await serviceClient()
       .from('group_chat_members')
       .select('*', { count: 'exact', head: true })
       .eq('group_chat_id', groupChatId)
@@ -54,7 +54,7 @@ export async function POST(
       return NextResponse.json({ error: 'Group is full' }, { status: 400 })
     }
 
-    const { data: existing } = await serviceClient
+    const { data: existing } = await serviceClient()
       .from('group_chat_members')
       .select('id')
       .eq('group_chat_id', groupChatId)
@@ -65,7 +65,7 @@ export async function POST(
       return NextResponse.json({ ok: true, alreadyJoined: true })
     }
 
-    const { error: joinError } = await serviceClient
+    const { error: joinError } = await serviceClient()
       .from('group_chat_members')
       .insert({
         group_chat_id: groupChatId,
@@ -94,7 +94,7 @@ export async function DELETE(
 
     const { groupChatId } = await params
 
-    const { error } = await serviceClient
+    const { error } = await serviceClient()
       .from('group_chat_members')
       .delete()
       .eq('group_chat_id', groupChatId)

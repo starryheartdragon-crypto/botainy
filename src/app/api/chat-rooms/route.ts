@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
 
 export async function GET() {
   try {
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('chat_rooms')
       .select('id, name, description, background_url, city_info, notable_bots, created_at')
       .order('created_at', { ascending: false })
@@ -37,13 +37,13 @@ export async function POST(req: NextRequest) {
     const {
       data: { user },
       error: authError,
-    } = await authClient.auth.getUser(token)
+    } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: userRow, error: userError } = await serviceClient
+    const { data: userRow, error: userError } = await serviceClient()
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Room name is required' }, { status: 400 })
     }
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('chat_rooms')
       .insert({
         name,

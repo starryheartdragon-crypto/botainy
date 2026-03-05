@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 type ReportTargetType = 'bot' | 'user'
 
@@ -26,7 +26,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (targetType === 'user') {
-      const { data: reportedUser, error: reportedUserError } = await serviceClient
-        .from('users')
+      const { data: reportedUser, error: reportedUserError } = await serviceClient()
+      .from('users')
         .select('id')
         .eq('id', targetId)
         .maybeSingle()
@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (targetType === 'bot') {
-      const { data: reportedBot, error: reportedBotError } = await serviceClient
-        .from('bots')
+      const { data: reportedBot, error: reportedBotError } = await serviceClient()
+      .from('bots')
         .select('id')
         .eq('id', targetId)
         .maybeSingle()
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       insertPayload.reported_bot_id = targetId
     }
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('reports')
       .insert(insertPayload)
       .select('id, reporter_id, reported_user_id, reported_bot_id, reason, details, status, created_at')

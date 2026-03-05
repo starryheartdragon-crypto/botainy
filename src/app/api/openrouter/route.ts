@@ -6,9 +6,9 @@ import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterMo
 
 type Message = { role: string; content: string }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const {
       data: { user },
       error: authError,
-    } = await authClient.auth.getUser(token)
+    } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

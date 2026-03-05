@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 type ConnectionRow = {
   id: string
@@ -30,7 +30,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -60,7 +60,7 @@ export async function PATCH(
     let byIdConnection: ConnectionRow | null = null
     let fetchError: { message?: string } | null = null
     if (isUuid(connectionId)) {
-      const res = await serviceClient
+      const res = await serviceClient()
         .from('user_connections')
         .select('id, requester_id, addressee_id, status')
         .eq('id', connectionId)
@@ -76,7 +76,7 @@ export async function PATCH(
     let connection = byIdConnection
 
     if (!connection && isUuid(peerUserId)) {
-      const { data: pairRows, error: pairError } = await serviceClient
+      const { data: pairRows, error: pairError } = await serviceClient()
         .from('user_connections')
         .select('id, requester_id, addressee_id, status, created_at')
         .or(
@@ -107,7 +107,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
       }
 
-      const { data, error } = await serviceClient
+      const { data, error } = await serviceClient()
         .from('user_connections')
         .update({
           status: 'accepted',
@@ -125,7 +125,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
       }
 
-      const { data, error } = await serviceClient
+      const { data, error } = await serviceClient()
         .from('user_connections')
         .update({
           status: 'declined',
@@ -143,7 +143,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
       }
 
-      const { error } = await serviceClient
+      const { error } = await serviceClient()
         .from('user_connections')
         .delete()
         .eq('id', connection.id)
@@ -157,7 +157,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
       }
 
-      const { error } = await serviceClient
+      const { error } = await serviceClient()
         .from('user_connections')
         .delete()
         .eq('id', connection.id)

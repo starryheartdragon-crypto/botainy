@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 type BasicUser = {
   id: string
@@ -30,7 +30,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const q = (url.searchParams.get('q') || '').trim()
 
-    const { data: incomingRows, error: incomingError } = await serviceClient
+    const { data: incomingRows, error: incomingError } = await serviceClient()
       .from('user_connections')
       .select('id, requester_id, addressee_id, status, created_at')
       .eq('addressee_id', user.id)
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: incomingError.message }, { status: 500 })
     }
 
-    const { data: outgoingRows, error: outgoingError } = await serviceClient
+    const { data: outgoingRows, error: outgoingError } = await serviceClient()
       .from('user_connections')
       .select('id, requester_id, addressee_id, status, created_at')
       .eq('requester_id', user.id)
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: outgoingError.message }, { status: 500 })
     }
 
-    const { data: acceptedRows, error: acceptedError } = await serviceClient
+    const { data: acceptedRows, error: acceptedError } = await serviceClient()
       .from('user_connections')
       .select('id, requester_id, addressee_id, status, created_at')
       .eq('status', 'accepted')
@@ -89,8 +89,8 @@ export async function GET(req: NextRequest) {
 
     let usersById: Record<string, BasicUser> = {}
     if (allUserIds.length > 0) {
-      const { data: users, error: usersError } = await serviceClient
-        .from('users')
+      const { data: users, error: usersError } = await serviceClient()
+      .from('users')
         .select('id, username, avatar_url, bio, is_admin')
         .in('id', allUserIds)
 
@@ -123,8 +123,8 @@ export async function GET(req: NextRequest) {
     let discover: BasicUser[] = []
 
     if (q.length > 0) {
-      const { data: discoverUsers, error: discoverError } = await serviceClient
-        .from('users')
+      const { data: discoverUsers, error: discoverError } = await serviceClient()
+      .from('users')
         .select('id, username, avatar_url, bio, is_admin')
         .ilike('username', `%${q}%`)
         .limit(20)
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid target user id' }, { status: 400 })
     }
 
-    const { data: targetUser, error: targetError } = await serviceClient
+    const { data: targetUser, error: targetError } = await serviceClient()
       .from('users')
       .select('id')
       .eq('id', targetUserId)
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
     }
 
-    const { data: existingForward, error: existingForwardError } = await serviceClient
+    const { data: existingForward, error: existingForwardError } = await serviceClient()
       .from('user_connections')
       .select('id, status')
       .eq('requester_id', user.id)
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: existingForwardError.message }, { status: 500 })
     }
 
-    const { data: existingReverse, error: existingReverseError } = await serviceClient
+    const { data: existingReverse, error: existingReverseError } = await serviceClient()
       .from('user_connections')
       .select('id, status')
       .eq('requester_id', targetUserId)
@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing) {
-      const { data: updated, error: updateError } = await serviceClient
-        .from('user_connections')
+      const { data: updated, error: updateError } = await serviceClient()
+      .from('user_connections')
         .update({
           requester_id: user.id,
           addressee_id: targetUserId,
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(updated, { status: 201 })
     }
 
-    const { data: created, error: createError } = await serviceClient
+    const { data: created, error: createError } = await serviceClient()
       .from('user_connections')
       .insert({
         requester_id: user.id,

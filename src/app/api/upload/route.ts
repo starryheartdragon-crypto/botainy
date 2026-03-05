@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rateLimit'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const allowedBuckets = new Set(['avatars', 'chatroom-backgrounds'])
 
@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey)
-    const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+    const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+    const { data: { user }, error: authError } = await authClient().auth.getUser(token)
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -64,16 +64,16 @@ export async function POST(req: NextRequest) {
     const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
 
     // Use service role for uploads to avoid RLS issues
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
     
     const buffer = await file.arrayBuffer()
     let usedBucket = bucket
-    let { error } = await serviceClient.storage
+    let { error } = await serviceClient().storage
       .from(usedBucket)
       .upload(filePath, buffer, { upsert: true, contentType: file.type })
 
     if (error && usedBucket === 'chatroom-backgrounds') {
-      const fallbackAttempt = await serviceClient.storage
+      const fallbackAttempt = await serviceClient().storage
         .from('avatars')
         .upload(filePath, buffer, { upsert: true, contentType: file.type })
       error = fallbackAttempt.error
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     console.log('[Upload] Uploaded:', filePath)
 
     // Get public URL
-    const { data: urlData } = serviceClient.storage
+    const { data: urlData } = serviceClient().storage
       .from(usedBucket)
       .getPublicUrl(filePath)
 

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 async function getAuthUser(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -16,7 +16,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: settings } = await serviceClient
+    const { data: settings } = await serviceClient()
       .from('user_music_settings')
       .select('youtube_playlist_url')
       .eq('user_id', user.id)
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Clear playlist before uploading tracks' }, { status: 400 })
     }
 
-    const { count, error: countError } = await serviceClient
+    const { count, error: countError } = await serviceClient()
       .from('user_music_tracks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     const title = titleRaw || file.name.replace(/\.[^/.]+$/, '')
 
     const buffer = await file.arrayBuffer()
-    const { error: uploadError } = await serviceClient.storage
+    const { error: uploadError } = await serviceClient().storage
       .from('music')
       .upload(storagePath, buffer, { contentType: file.type, upsert: false })
 
@@ -77,9 +77,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 })
     }
 
-    const { data: urlData } = serviceClient.storage.from('music').getPublicUrl(storagePath)
+    const { data: urlData } = serviceClient().storage.from('music').getPublicUrl(storagePath)
 
-    const { data: track, error: insertError } = await serviceClient
+    const { data: track, error: insertError } = await serviceClient()
       .from('user_music_tracks')
       .insert({
         user_id: user.id,
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (insertError) {
-      await serviceClient.storage.from('music').remove([storagePath])
+      await serviceClient().storage.from('music').remove([storagePath])
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 

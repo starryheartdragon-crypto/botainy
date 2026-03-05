@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const NEW_YORK_TIMEZONE = 'America/New_York'
 
@@ -114,7 +114,7 @@ function getCurrentCycleStartIso() {
 async function clearExpiredRoomMessages(roomId: string) {
   const cycleStartIso = getCurrentCycleStartIso()
 
-  const { error } = await serviceClient
+  const { error } = await serviceClient()
     .from('chat_room_messages')
     .delete()
     .eq('room_id', roomId)
@@ -130,13 +130,13 @@ async function getAuthUser(req: NextRequest) {
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
   if (!token) return null
 
-  const { data: { user }, error } = await authClient.auth.getUser(token)
+  const { data: { user }, error } = await authClient().auth.getUser(token)
   if (error || !user) return null
   return user
 }
 
 async function ensureMember(roomId: string, userId: string) {
-  const { data, error } = await serviceClient
+  const { data, error } = await serviceClient()
     .from('chat_room_members')
     .select('id')
     .eq('room_id', roomId)
@@ -148,7 +148,7 @@ async function ensureMember(roomId: string, userId: string) {
 }
 
 async function getModerationFlags(userId: string) {
-  const { data, error } = await serviceClient
+  const { data, error } = await serviceClient()
     .from('users')
     .select('is_banned, is_silenced')
     .eq('id', userId)
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
 
     await clearExpiredRoomMessages(roomId)
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('chat_room_messages')
       .select('id, room_id, sender_id, persona_id, content, created_at, updated_at, personas(id, name, avatar_url)')
       .eq('room_id', roomId)
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     }
 
     if (personaId) {
-      const { data: persona, error: personaError } = await serviceClient
+      const { data: persona, error: personaError } = await serviceClient()
         .from('personas')
         .select('id')
         .eq('id', personaId)
@@ -232,7 +232,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
       }
     }
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('chat_room_messages')
       .insert({ room_id: roomId, sender_id: user.id, persona_id: personaId, content })
       .select('id, room_id, sender_id, persona_id, content, created_at, updated_at, personas(id, name, avatar_url)')

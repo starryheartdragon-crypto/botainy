@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 type UpdatePersonaPayload = {
@@ -16,11 +16,11 @@ async function getUserFromAuthHeader(authHeader: string | null) {
     return { user: null, error: 'Unauthorized' }
   }
 
-  const authClient = createClient(supabaseUrl, supabaseAnonKey)
+  const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) {
     return { user: null, error: 'Unauthorized' }
@@ -57,9 +57,9 @@ export async function PATCH(
       )
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
-    const { data: existing, error: existingError } = await serviceClient
+    const { data: existing, error: existingError } = await serviceClient()
       .from('personas')
       .select('id,user_id')
       .eq('id', personaId)
@@ -73,7 +73,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { data, error } = await serviceClient
+    const { data, error } = await serviceClient()
       .from('personas')
       .update({ name, description })
       .eq('id', personaId)
@@ -108,9 +108,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Missing persona id' }, { status: 400 })
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
-    const { data: existing, error: existingError } = await serviceClient
+    const { data: existing, error: existingError } = await serviceClient()
       .from('personas')
       .select('id,user_id')
       .eq('id', personaId)
@@ -124,7 +124,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { error } = await serviceClient.from('personas').delete().eq('id', personaId)
+    const { error } = await serviceClient().from('personas').delete().eq('id', personaId)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

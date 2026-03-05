@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const authClient = createClient(supabaseUrl, supabaseAnonKey)
-const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
+const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 function isYouTubePlaylistUrl(value: string) {
   try {
@@ -28,7 +28,7 @@ async function getAuthUser(req: NextRequest) {
   const {
     data: { user },
     error,
-  } = await authClient.auth.getUser(token)
+  } = await authClient().auth.getUser(token)
 
   if (error || !user) return null
   return user
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: settings, error: settingsError } = await serviceClient
+    const { data: settings, error: settingsError } = await serviceClient()
       .from('user_music_settings')
       .select('youtube_playlist_url')
       .eq('user_id', user.id)
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: settingsError.message }, { status: 500 })
     }
 
-    const { data: tracks, error: tracksError } = await serviceClient
+    const { data: tracks, error: tracksError } = await serviceClient()
       .from('user_music_tracks')
       .select('id, title, url, created_at')
       .eq('user_id', user.id)
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Valid YouTube playlist URL required' }, { status: 400 })
     }
 
-    const { count, error: countError } = await serviceClient
+    const { count, error: countError } = await serviceClient()
       .from('user_music_tracks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Remove uploaded tracks before setting playlist' }, { status: 400 })
     }
 
-    const { error } = await serviceClient
+    const { error } = await serviceClient()
       .from('user_music_settings')
       .upsert({
         user_id: user.id,
@@ -127,8 +127,8 @@ export async function DELETE(req: NextRequest) {
     const clearPlaylist = !!body?.clearPlaylist
 
     if (clearPlaylist) {
-      const { error } = await serviceClient
-        .from('user_music_settings')
+      const { error } = await serviceClient()
+      .from('user_music_settings')
         .upsert({
           user_id: user.id,
           youtube_playlist_url: null,
@@ -143,8 +143,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (trackId) {
-      const { data: track, error: trackError } = await serviceClient
-        .from('user_music_tracks')
+      const { data: track, error: trackError } = await serviceClient()
+      .from('user_music_tracks')
         .select('id, storage_path')
         .eq('id', trackId)
         .eq('user_id', user.id)
@@ -154,8 +154,8 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: 'Track not found' }, { status: 404 })
       }
 
-      const { error: deleteRowError } = await serviceClient
-        .from('user_music_tracks')
+      const { error: deleteRowError } = await serviceClient()
+      .from('user_music_tracks')
         .delete()
         .eq('id', trackId)
         .eq('user_id', user.id)
@@ -164,7 +164,7 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: deleteRowError.message }, { status: 500 })
       }
 
-      await serviceClient.storage.from('music').remove([track.storage_path])
+      await serviceClient().storage.from('music').remove([track.storage_path])
 
       return NextResponse.json({ ok: true })
     }
