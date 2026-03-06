@@ -12,6 +12,8 @@
     "smoke": "node scripts/smoke.mjs",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy:preview": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env preview",
+    "deploy:production": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
