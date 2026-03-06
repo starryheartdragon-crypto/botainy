@@ -27,7 +27,8 @@ function loadEnvFile(fileName) {
       value = value.slice(1, -1)
     }
 
-    if (!(key in process.env)) {
+    const existing = process.env[key]
+    if (!existing || !String(existing).trim()) {
       process.env[key] = value
     }
   }
