@@ -28,7 +28,21 @@
 		"enabled": true
 	},
 	"vars": {
-		"NEXT_PUBLIC_SUPABASE_URL": "https://<project>.supabase.co",
-		"NEXT_PUBLIC_SUPABASE_ANON_KEY": "<anon-key>"
+		"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
+		"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"
+	},
+	"env": {
+		"production": {
+			"vars": {
+				"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
+				"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"
+			}
+		},
+		"preview": {
+			"vars": {
+				"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
+				"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"
+			}
+		}
 	}
 }
