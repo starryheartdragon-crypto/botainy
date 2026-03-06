@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cf": "npx @opennextjs/cloudflare build",
     "start": "next start",
     "lint": "eslint",
     "smoke": "node scripts/smoke.mjs"
@@ -20,6 +21,7 @@
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.17.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

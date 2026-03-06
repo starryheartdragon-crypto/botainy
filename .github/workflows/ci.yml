@@ -30,11 +30,11 @@ jobs:
         run: npm run build
 
       - name: Start app for smoke (optional)
-        if: ${{ secrets.SMOKE_AUTH_TOKEN != '' && secrets.SMOKE_BOT_ID != '' }}
+        if: ${{ env.SMOKE_AUTH_TOKEN != '' && env.SMOKE_BOT_ID != '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
           NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
@@ -52,7 +52,7 @@ jobs:
           exit 1
 
       - name: Smoke test (optional)
-        if: ${{ secrets.SMOKE_AUTH_TOKEN != '' && secrets.SMOKE_BOT_ID != '' }}
+        if: ${{ env.SMOKE_AUTH_TOKEN != '' && env.SMOKE_BOT_ID != '' }}
         env:
           SMOKE_BASE_URL: http://127.0.0.1:3000
           SMOKE_AUTH_TOKEN: ${{ secrets.SMOKE_AUTH_TOKEN }}
