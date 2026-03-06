@@ -33,12 +33,30 @@
 	},
 	"env": {
 		"production": {
+			"services": [
+				{
+					"binding": "WORKER_SELF_REFERENCE",
+					"service": "botainy"
+				}
+			],
+			"images": {
+				"binding": "IMAGES"
+			},
 			"vars": {
 				"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
 				"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"
 			}
 		},
 		"preview": {
+			"services": [
+				{
+					"binding": "WORKER_SELF_REFERENCE",
+					"service": "botainy-preview"
+				}
+			],
+			"images": {
+				"binding": "IMAGES"
+			},
 			"vars": {
 				"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
 				"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"

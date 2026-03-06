@@ -35,6 +35,7 @@ function loadEnvFile(fileName) {
 
 loadEnvFile(".env.local")
 loadEnvFile(".env")
+loadEnvFile(".env.production")
 
 const missing = requiredPublic.filter((name) => {
   const value = process.env[name]
