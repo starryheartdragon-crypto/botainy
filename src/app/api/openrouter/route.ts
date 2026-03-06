@@ -77,8 +77,18 @@ export async function POST(req: NextRequest) {
 
     const data = await resp.json().catch(() => null)
     if (!resp.ok) {
+      const upstreamMessage = getOpenRouterErrorMessage(data, `OpenRouter request failed with status ${resp.status}`)
+      const isAuthError = resp.status === 401
+      const looksLikeInvalidKey = /user not found|invalid api key|unauthorized/i.test(upstreamMessage)
+
       return NextResponse.json(
-        { error: getOpenRouterErrorMessage(data, `OpenRouter request failed with status ${resp.status}`), model },
+        {
+          error:
+            isAuthError && looksLikeInvalidKey
+              ? 'OpenRouter authentication failed. Configure a valid OPENROUTER_API_KEY for this deployed environment (preview/production), then redeploy or update worker secrets.'
+              : upstreamMessage,
+          model,
+        },
         {
           status: resp.status,
           headers: rateLimitHeaders(limit),

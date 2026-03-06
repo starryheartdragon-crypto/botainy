@@ -42,6 +42,9 @@ jobs:
       - name: Build OpenNext bundle
         run: npm run build:cf
 
+      - name: Ensure OpenRouter secret (preview)
+        run: echo "${{ secrets.OPENROUTER_API_KEY }}" | npx wrangler secret put OPENROUTER_API_KEY --env preview
+
       - name: Deploy preview
         run: npm run deploy:preview
 
@@ -69,6 +72,9 @@ jobs:
 
       - name: Build OpenNext bundle
         run: npm run build:cf
+
+      - name: Ensure OpenRouter secret (production)
+        run: echo "${{ secrets.OPENROUTER_API_KEY }}" | npx wrangler secret put OPENROUTER_API_KEY --env production
 
       - name: Deploy production
         run: npm run deploy:production
