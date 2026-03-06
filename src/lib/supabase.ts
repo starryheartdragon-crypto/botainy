@@ -57,7 +57,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
     const client = getSupabaseClient()
     const value = Reflect.get(client as unknown as object, prop, receiver)
 
-    return typeof value === 'function' ? (value as Function).bind(client) : value
+    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(client) : value
   },
 }) as SupabaseClient
 
