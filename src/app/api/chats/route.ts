@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { canUserAccessBot, getSharedPrivateBotIdsForUser } from '@/lib/botVisibility'
 
 function isMissingPersonaColumnError(error: { code?: string; message?: string } | null | undefined) {
   const message = (error?.message || '').toLowerCase()
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
         persona_id,
         created_at,
         updated_at,
-        bots!inner(id, name, avatar_url, personality),
+        bots!inner(id, name, avatar_url, personality, creator_id, is_published),
         personas(id, name, avatar_url),
         chat_messages(id, created_at)
       `)
@@ -100,7 +101,57 @@ export async function GET(req: NextRequest) {
       .order('updated_at', { ascending: false })
 
     if (!chatsError) {
-      return NextResponse.json(chatsWithPersona)
+      const privateCandidateBotIds = Array.from(
+        new Set(
+          (chatsWithPersona || [])
+            .map((chat: Record<string, unknown>) => {
+              const bot = chat.bots as
+                | { id?: string; creator_id?: string; is_published?: boolean }
+                | undefined
+
+              if (!bot?.id || bot.is_published || bot.creator_id === user.id) {
+                return null
+              }
+
+              return bot.id
+            })
+            .filter((value): value is string => Boolean(value))
+        )
+      )
+
+      const sharedPrivateBotIds =
+        privateCandidateBotIds.length > 0
+          ? await getSharedPrivateBotIdsForUser(serviceClient, user.id, privateCandidateBotIds)
+          : new Set<string>()
+
+      const visibleChats = (chatsWithPersona || []).filter((chat: Record<string, unknown>) => {
+        const bot = chat.bots as
+          | { id?: string; creator_id?: string; is_published?: boolean }
+          | undefined
+        if (!bot?.id) return false
+        if (bot.is_published || bot.creator_id === user.id) return true
+        return sharedPrivateBotIds.has(bot.id)
+      })
+
+      const sanitizedChats = visibleChats.map((chat: Record<string, unknown>) => {
+        const bot = chat.bots as
+          | {
+              id?: string
+              name?: string
+              avatar_url?: string | null
+              personality?: string
+              creator_id?: string
+              is_published?: boolean
+            }
+          | undefined
+
+        if (!bot) return chat
+
+        const { creator_id, is_published, ...sanitizedBot } = bot
+        return { ...chat, bots: sanitizedBot }
+      })
+
+      return NextResponse.json(sanitizedChats)
     }
 
     if (!isMissingPersonaColumnError(chatsError)) {
@@ -115,7 +166,7 @@ export async function GET(req: NextRequest) {
         bot_id,
         created_at,
         updated_at,
-        bots!inner(id, name, avatar_url, personality),
+        bots!inner(id, name, avatar_url, personality, creator_id, is_published),
         chat_messages(id, created_at)
       `)
       .eq('user_id', user.id)
@@ -125,11 +176,66 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: fallbackError.message }, { status: 500 })
     }
 
-    const normalizedChats = (chatsWithoutPersona || []).map((chat: Record<string, unknown>) => ({
-      ...chat,
-      persona_id: null,
-      personas: null,
-    }))
+    const privateCandidateBotIds = Array.from(
+      new Set(
+        (chatsWithoutPersona || [])
+          .map((chat: Record<string, unknown>) => {
+            const bot = chat.bots as
+              | { id?: string; creator_id?: string; is_published?: boolean }
+              | undefined
+
+            if (!bot?.id || bot.is_published || bot.creator_id === user.id) {
+              return null
+            }
+
+            return bot.id
+          })
+          .filter((value): value is string => Boolean(value))
+      )
+    )
+
+    const sharedPrivateBotIds =
+      privateCandidateBotIds.length > 0
+        ? await getSharedPrivateBotIdsForUser(serviceClient, user.id, privateCandidateBotIds)
+        : new Set<string>()
+
+    const normalizedChats = (chatsWithoutPersona || [])
+      .filter((chat: Record<string, unknown>) => {
+        const bot = chat.bots as
+          | { id?: string; creator_id?: string; is_published?: boolean }
+          | undefined
+        if (!bot?.id) return false
+        if (bot.is_published || bot.creator_id === user.id) return true
+        return sharedPrivateBotIds.has(bot.id)
+      })
+      .map((chat: Record<string, unknown>) => {
+        const bot = chat.bots as
+          | {
+              id?: string
+              name?: string
+              avatar_url?: string | null
+              personality?: string
+              creator_id?: string
+              is_published?: boolean
+            }
+          | undefined
+
+        if (!bot) {
+          return {
+            ...chat,
+            persona_id: null,
+            personas: null,
+          }
+        }
+
+        const { creator_id, is_published, ...sanitizedBot } = bot
+        return {
+          ...chat,
+          persona_id: null,
+          personas: null,
+          bots: sanitizedBot,
+        }
+      })
 
     return NextResponse.json(normalizedChats)
   } catch (err: unknown) {
@@ -159,7 +265,7 @@ export async function POST(req: NextRequest) {
 
     const { data: bot, error: botError } = await serviceClient
       .from('bots')
-      .select('id')
+      .select('id, creator_id, is_published')
       .eq('id', botId)
       .maybeSingle()
 
@@ -169,6 +275,16 @@ export async function POST(req: NextRequest) {
 
     if (!bot) {
       return NextResponse.json({ error: 'Bot not found' }, { status: 404 })
+    }
+
+    const canAccess = await canUserAccessBot(serviceClient, user.id, {
+      id: bot.id,
+      creator_id: bot.creator_id,
+      is_published: bot.is_published,
+    })
+
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     if (effectivePersonaId) {

@@ -523,7 +523,7 @@ export default function CreateBotPage() {
         throw new Error(payload.error || "Failed to create bot")
       }
 
-      toast.success(botPublishNow ? "Bot created and published!" : "Bot created as private draft")
+      toast.success(botPublishNow ? "Bot created and published!" : "Bot created as private to My Bots")
       setLastCreatedBotId(payload.bot.id ?? null)
       setLastCreatedBotPublished(!!payload.bot.is_published)
       setBotName("")
@@ -791,7 +791,7 @@ export default function CreateBotPage() {
             <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900/70 p-4 sm:p-5">
               <h2 className="text-lg font-semibold mb-1">Request a New Universe</h2>
               <p className="text-sm text-gray-300 mb-4">
-                Submit a short request and admins can review it from the admin panel.
+                Submit a short request and admins can review it in Admin -> Requests.
               </p>
 
               <form onSubmit={handleSubmitUniverseRequest} className="space-y-3">
@@ -1589,8 +1589,8 @@ export default function CreateBotPage() {
                         : "border-gray-700 bg-gray-950 text-gray-300 hover:border-gray-500"
                     }`}
                   >
-                    <div className="font-semibold">Private Draft</div>
-                    <div className="text-xs text-gray-400">Saved without publishing.</div>
+                    <div className="font-semibold">Private (My Bots)</div>
+                    <div className="text-xs text-gray-400">Visible to you and eligible group members only.</div>
                   </button>
                 </div>
               </div>

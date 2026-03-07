@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
-const TABS = ["Reports", "Bots", "Users", "Chat Rooms", "Universe Requests"];
+const TABS = ["Reports", "Bots", "Users", "Chat Rooms", "Requests"];
 
 type ReportRow = {
   id: string;
@@ -167,7 +167,7 @@ export default function AdminPage() {
           {activeTab === 1 && <BotsTab />}
           {activeTab === 2 && <UsersTab />}
           {activeTab === 3 && <ChatRoomsTab />}
-          {activeTab === 4 && <UniverseRequestsTab />}
+          {activeTab === 4 && <RequestsTab />}
         </div>
       </div>
     </div>
@@ -427,7 +427,6 @@ function UsersTab() {
 
 function ChatRoomsTab() {
   const [rooms, setRooms] = useState<RoomRow[]>([]);
-  const [requests, setRequests] = useState<ModerationRequestRow[]>([]);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [bgUrl, setBgUrl] = useState("");
@@ -435,19 +434,9 @@ function ChatRoomsTab() {
   const [notableBots, setNotableBots] = useState("");
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [requestLoading, setRequestLoading] = useState<string | null>(null);
-
-  async function refreshRequests() {
-    const { data } = await supabase
-      .from("chat_room_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setRequests(data || []);
-  }
 
   useEffect(() => {
     supabase.from("chat_rooms").select("*").order("created_at", { ascending: false }).then(({ data }) => setRooms(data || []));
-    refreshRequests();
   }, []);
   async function handleUploadBg(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -523,85 +512,9 @@ function ChatRoomsTab() {
     }
   }
 
-  async function handleRequestStatus(requestId: string, status: "reviewed" | "approved" | "rejected") {
-    setRequestLoading(requestId + status);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from("chat_room_requests")
-        .update({
-          status,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-        })
-        .eq("id", requestId);
-
-      await refreshRequests();
-    } finally {
-      setRequestLoading(null);
-    }
-  }
-
   return (
     <div>
       <h2 className="text-xl font-bold mb-4">Chat Rooms</h2>
-
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-3">Room Requests</h3>
-        {requests.length === 0 ? (
-          <div className="text-gray-400">No room requests yet.</div>
-        ) : (
-          <ul className="space-y-3 mb-6">
-            {requests.map((req) => (
-              <li key={req.id} className="bg-gray-900 rounded p-4 border border-gray-700">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <div className="font-semibold text-white">{req.requested_name}</div>
-                  <span className={`text-xs px-2 py-1 rounded-full border ${
-                    req.status === "approved"
-                      ? "bg-green-900/40 border-green-700 text-green-200"
-                      : req.status === "rejected"
-                        ? "bg-red-900/40 border-red-700 text-red-200"
-                        : req.status === "reviewed"
-                          ? "bg-blue-900/40 border-blue-700 text-blue-200"
-                          : "bg-yellow-900/30 border-yellow-700 text-yellow-200"
-                  }`}>
-                    {req.status}
-                  </span>
-                </div>
-                <div className="text-sm text-gray-300 mb-2 whitespace-pre-wrap">{req.request_details}</div>
-                <div className="text-xs text-gray-500 mb-3">
-                  Requested by {req.requester_id} • {new Date(req.created_at).toLocaleString()}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                    disabled={requestLoading === req.id + "reviewed"}
-                    onClick={() => handleRequestStatus(req.id, "reviewed")}
-                  >
-                    Mark Reviewed
-                  </button>
-                  <button
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                    disabled={requestLoading === req.id + "approved"}
-                    onClick={() => handleRequestStatus(req.id, "approved")}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                    disabled={requestLoading === req.id + "rejected"}
-                    onClick={() => handleRequestStatus(req.id, "rejected")}
-                  >
-                    Reject
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       <form onSubmit={handleCreate} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Room name" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
@@ -641,30 +554,45 @@ function ChatRoomsTab() {
   );
 }
 
-function UniverseRequestsTab() {
-  const [requests, setRequests] = useState<ModerationRequestRow[]>([]);
+function RequestsTab() {
+  const [roomRequests, setRoomRequests] = useState<ModerationRequestRow[]>([]);
+  const [universeRequests, setUniverseRequests] = useState<ModerationRequestRow[]>([]);
   const [requestLoading, setRequestLoading] = useState<string | null>(null);
 
-  async function refreshRequests() {
+  async function refreshUniverseRequests() {
     const { data } = await supabase
       .from("bot_universe_requests")
       .select("*")
       .order("created_at", { ascending: false });
-    setRequests(data || []);
+    setUniverseRequests(data || []);
+  }
+
+  async function refreshRoomRequests() {
+    const { data } = await supabase
+      .from("chat_room_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setRoomRequests(data || []);
   }
 
   useEffect(() => {
-    refreshRequests();
+    refreshUniverseRequests();
+    refreshRoomRequests();
   }, []);
 
-  async function handleRequestStatus(requestId: string, status: "reviewed" | "approved" | "rejected") {
-    setRequestLoading(requestId + status);
+  async function handleRequestStatus(
+    source: "bot_universe_requests" | "chat_room_requests",
+    requestId: string,
+    status: "reviewed" | "approved" | "rejected",
+  ) {
+    const loadingKey = `${source}:${requestId}:${status}`;
+    setRequestLoading(loadingKey);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       await supabase
-        .from("bot_universe_requests")
+        .from(source)
         .update({
           status,
           reviewed_at: new Date().toISOString(),
@@ -672,66 +600,85 @@ function UniverseRequestsTab() {
         })
         .eq("id", requestId);
 
-      await refreshRequests();
+      if (source === "bot_universe_requests") {
+        await refreshUniverseRequests();
+      } else {
+        await refreshRoomRequests();
+      }
     } finally {
       setRequestLoading(null);
     }
   }
 
+  function renderRequestList(source: "bot_universe_requests" | "chat_room_requests", requests: ModerationRequestRow[]) {
+    if (requests.length === 0) {
+      return <div className="text-gray-400">No requests yet.</div>;
+    }
+
+    return (
+      <ul className="space-y-3 mb-6">
+        {requests.map((req) => (
+          <li key={req.id} className="bg-gray-900 rounded p-4 border border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="font-semibold text-white">{req.requested_name}</div>
+              <span className={`text-xs px-2 py-1 rounded-full border ${
+                req.status === "approved"
+                  ? "bg-green-900/40 border-green-700 text-green-200"
+                  : req.status === "rejected"
+                    ? "bg-red-900/40 border-red-700 text-red-200"
+                    : req.status === "reviewed"
+                      ? "bg-blue-900/40 border-blue-700 text-blue-200"
+                      : "bg-yellow-900/30 border-yellow-700 text-yellow-200"
+              }`}>
+                {req.status}
+              </span>
+            </div>
+            <div className="text-sm text-gray-300 mb-2 whitespace-pre-wrap">{req.request_details}</div>
+            <div className="text-xs text-gray-500 mb-3">
+              Requested by {req.requester_id} • {new Date(req.created_at).toLocaleString()}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded disabled:opacity-60"
+                disabled={requestLoading === `${source}:${req.id}:reviewed`}
+                onClick={() => handleRequestStatus(source, req.id, "reviewed")}
+              >
+                Mark Reviewed
+              </button>
+              <button
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded disabled:opacity-60"
+                disabled={requestLoading === `${source}:${req.id}:approved`}
+                onClick={() => handleRequestStatus(source, req.id, "approved")}
+              >
+                Approve
+              </button>
+              <button
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded disabled:opacity-60"
+                disabled={requestLoading === `${source}:${req.id}:rejected`}
+                onClick={() => handleRequestStatus(source, req.id, "rejected")}
+              >
+                Reject
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Universe Requests</h2>
-      {requests.length === 0 ? (
-        <div className="text-gray-400">No universe requests yet.</div>
-      ) : (
-        <ul className="space-y-3 mb-6">
-          {requests.map((req) => (
-            <li key={req.id} className="bg-gray-900 rounded p-4 border border-gray-700">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="font-semibold text-white">{req.requested_name}</div>
-                <span className={`text-xs px-2 py-1 rounded-full border ${
-                  req.status === "approved"
-                    ? "bg-green-900/40 border-green-700 text-green-200"
-                    : req.status === "rejected"
-                      ? "bg-red-900/40 border-red-700 text-red-200"
-                      : req.status === "reviewed"
-                        ? "bg-blue-900/40 border-blue-700 text-blue-200"
-                        : "bg-yellow-900/30 border-yellow-700 text-yellow-200"
-                }`}>
-                  {req.status}
-                </span>
-              </div>
-              <div className="text-sm text-gray-300 mb-2 whitespace-pre-wrap">{req.request_details}</div>
-              <div className="text-xs text-gray-500 mb-3">
-                Requested by {req.requester_id} • {new Date(req.created_at).toLocaleString()}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                  disabled={requestLoading === req.id + "reviewed"}
-                  onClick={() => handleRequestStatus(req.id, "reviewed")}
-                >
-                  Mark Reviewed
-                </button>
-                <button
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                  disabled={requestLoading === req.id + "approved"}
-                  onClick={() => handleRequestStatus(req.id, "approved")}
-                >
-                  Approve
-                </button>
-                <button
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded disabled:opacity-60"
-                  disabled={requestLoading === req.id + "rejected"}
-                  onClick={() => handleRequestStatus(req.id, "rejected")}
-                >
-                  Reject
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <h2 className="text-xl font-bold mb-4">Requests</h2>
+
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold mb-3">Universe Requests</h3>
+        {renderRequestList("bot_universe_requests", universeRequests)}
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Chat Room Requests</h3>
+        {renderRequestList("chat_room_requests", roomRequests)}
+      </div>
     </div>
   );
 }

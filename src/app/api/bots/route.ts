@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { BOT_UNIVERSES } from '@/lib/botUniverses'
+import { getSharedPrivateBotIdsForUser } from '@/lib/botVisibility'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
     const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
     let query = serviceClient()
       .from('bots')
-      .select('id,name,description,personality,avatar_url,creator_id,universe')
+      .select('id,name,description,personality,avatar_url,creator_id,universe,is_published')
       .eq('is_published', true)
       .order('created_at', { ascending: false })
       .limit(100)
@@ -109,7 +110,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ bots: data ?? [] }, { status: 200 })
+    const publicBots = data ?? []
+    const authHeader = req.headers.get('authorization')
+    const { user } = await getUserFromAuthHeader(authHeader)
+
+    if (!user) {
+      const sanitizedPublicBots = publicBots.map(({ is_published, ...bot }) => bot)
+      return NextResponse.json({ bots: sanitizedPublicBots }, { status: 200 })
+    }
+
+    const sharedPrivateBotIds = await getSharedPrivateBotIdsForUser(serviceClient(), user.id)
+
+    let privateBotsQuery = serviceClient()
+      .from('bots')
+      .select('id,name,description,personality,avatar_url,creator_id,universe,is_published')
+      .eq('is_published', false)
+      .in('id', Array.from(sharedPrivateBotIds))
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (nameQuery) {
+      privateBotsQuery = privateBotsQuery.ilike('name', `%${nameQuery}%`)
+    }
+
+    if (universeQuery) {
+      privateBotsQuery = privateBotsQuery.eq('universe', universeQuery)
+    }
+
+    const { data: privateBots, error: privateBotsError } =
+      sharedPrivateBotIds.size > 0
+        ? await privateBotsQuery
+        : { data: [], error: null }
+
+    if (privateBotsError) {
+      return NextResponse.json({ error: privateBotsError.message }, { status: 500 })
+    }
+
+    const merged = [...publicBots, ...(privateBots ?? [])]
+    const uniqueBots = Array.from(new Map(merged.map((bot) => [bot.id, bot])).values())
+    const sanitizedBots = uniqueBots.map(({ is_published, ...bot }) => bot)
+
+    return NextResponse.json({ bots: sanitizedBots }, { status: 200 })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load bots'
     return NextResponse.json({ error: message }, { status: 500 })

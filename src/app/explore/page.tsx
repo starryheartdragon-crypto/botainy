@@ -211,8 +211,17 @@ export default function ExplorePage() {
           params.set("universe", universe)
         }
 
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        const headers: Record<string, string> = {}
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`
+        }
+
         const query = params.toString()
-        const response = await fetch(query ? `/api/bots?${query}` : "/api/bots")
+        const response = await fetch(query ? `/api/bots?${query}` : "/api/bots", { headers })
         const payload = (await response.json()) as { bots?: ExploreBot[]; error?: string }
 
         if (!response.ok) {

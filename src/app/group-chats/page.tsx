@@ -118,7 +118,7 @@ export default function GroupChatsPage() {
     const [connectionsResp, mineBotsResp, publicBotsResp] = await Promise.all([
       fetch('/api/connections', { headers }),
       fetch('/api/bots?scope=mine', { headers }),
-      fetch('/api/bots'),
+      fetch('/api/bots', { headers }),
     ])
 
     if (connectionsResp.ok) {

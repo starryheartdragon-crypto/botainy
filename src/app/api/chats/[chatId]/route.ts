@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { canUserAccessBot } from '@/lib/botVisibility'
 
 function getSupabaseClients() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
@@ -109,7 +110,7 @@ export async function GET(
 
     const { data: bot, error: botError } = await serviceClient
       .from('bots')
-      .select('id, name, avatar_url, personality')
+      .select('id, name, avatar_url, personality, creator_id, is_published')
       .eq('id', chat.bot_id)
       .maybeSingle()
 
@@ -121,11 +122,23 @@ export async function GET(
       return NextResponse.json({ error: 'Bot not found' }, { status: 404 })
     }
 
+    const canAccess = await canUserAccessBot(serviceClient, user.id, {
+      id: bot.id,
+      creator_id: bot.creator_id,
+      is_published: bot.is_published,
+    })
+
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { creator_id, is_published, ...safeBot } = bot
+
     return NextResponse.json({
       id: chat.id,
       bot_id: chat.bot_id,
       persona_id: chat.persona_id ?? null,
-      bot,
+      bot: safeBot,
     })
   } catch (err: unknown) {
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
