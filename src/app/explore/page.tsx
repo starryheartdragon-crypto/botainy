@@ -522,10 +522,10 @@ export default function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950">
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 py-12 flex flex-col">
         <h1 className="text-3xl font-bold text-white mb-6">Explore Bots</h1>
 
-        <div className="mb-10 rounded-2xl border border-gray-700 bg-gray-800/50 p-5 md:p-6">
+        <div className="order-last mt-10 rounded-2xl border border-gray-700 bg-gray-800/50 p-5 md:p-6">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="text-xl font-semibold text-white">Dynamic Narrative Generator</h2>
             <span className="text-xs px-2 py-1 rounded-full border border-indigo-700 bg-indigo-900/40 text-indigo-200">
