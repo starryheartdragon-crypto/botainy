@@ -81,6 +81,13 @@ type NarrativeTurnResponse = {
   sceneCardPrompt?: string
 }
 
+type DynamicEventResponse = {
+  groupChatId: string
+  groupName: string
+  createdBots: Array<{ id: string; name: string }>
+  error?: string
+}
+
 const NARRATIVE_GENRES = [
   'High Fantasy',
   'Gritty Sci-Fi',
@@ -140,6 +147,8 @@ export default function ExplorePage() {
   const [roleplayMessages, setRoleplayMessages] = useState<RoleplayMessage[]>([])
   const [roleplayLoading, setRoleplayLoading] = useState(false)
   const [roleplayError, setRoleplayError] = useState<string | null>(null)
+  const [dynamicEventLoading, setDynamicEventLoading] = useState(false)
+  const [dynamicEventError, setDynamicEventError] = useState<string | null>(null)
   const [narrativeLoading, setNarrativeLoading] = useState(false)
   const [narrativeError, setNarrativeError] = useState<string | null>(null)
   const [loadingBots, setLoadingBots] = useState(false)
@@ -255,6 +264,7 @@ export default function ExplorePage() {
   const handleGenerateNarrative = async () => {
     setNarrativeError(null)
     setRoleplayError(null)
+    setDynamicEventError(null)
     setRoleplayInput('')
 
     if (!sparkIdentity.trim() || !sparkGoalContext.trim()) {
@@ -408,6 +418,50 @@ export default function ExplorePage() {
       setRoleplayError(error instanceof Error ? error.message : 'Failed to continue roleplay turn')
     } finally {
       setRoleplayLoading(false)
+    }
+  }
+
+  const handleLaunchDynamicEvent = async () => {
+    if (!narrative) return
+
+    try {
+      setDynamicEventLoading(true)
+      setDynamicEventError(null)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setDynamicEventError('Please log in to launch an AI group event.')
+        router.push('/login')
+        return
+      }
+
+      const response = await fetch('/api/game/dynamic-event', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          narrative,
+          groupName: `${narrative.title} - AI Group Event`,
+          visibility: 'private',
+        }),
+      })
+
+      const payload = (await response.json()) as DynamicEventResponse
+
+      if (!response.ok || !payload.groupChatId) {
+        throw new Error(payload.error || 'Failed to launch AI group event')
+      }
+
+      router.push(`/group-chats/${payload.groupChatId}`)
+    } catch (error) {
+      setDynamicEventError(error instanceof Error ? error.message : 'Failed to launch AI group event')
+    } finally {
+      setDynamicEventLoading(false)
     }
   }
 
@@ -686,6 +740,20 @@ export default function ExplorePage() {
                   <p className="text-sm text-gray-200">
                     <span className="text-blue-300">{narrative.dialogueStarter.speaker}:</span> “{narrative.dialogueStarter.line}”
                   </p>
+                </div>
+
+                <div className="mt-4 border-t border-gray-700 pt-3">
+                  <button
+                    onClick={handleLaunchDynamicEvent}
+                    disabled={dynamicEventLoading}
+                    className="px-4 py-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 transition"
+                  >
+                    {dynamicEventLoading ? 'Launching group event...' : 'Jump Into AI Group Chat'}
+                  </button>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Creates a private roleplay group chat with AI-generated cast bots and scenario rules.
+                  </p>
+                  {dynamicEventError && <p className="mt-2 text-xs text-rose-300">{dynamicEventError}</p>}
                 </div>
               </div>
 
