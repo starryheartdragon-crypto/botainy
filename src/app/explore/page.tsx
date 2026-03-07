@@ -265,10 +265,21 @@ export default function ExplorePage() {
     try {
       setNarrativeLoading(true)
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setNarrativeError('Please log in to use the Dynamic Narrative Generator.')
+        router.push('/login')
+        return
+      }
+
       const response = await fetch('/api/narrative/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           identity: sparkIdentity,
@@ -323,6 +334,16 @@ export default function ExplorePage() {
     setRoleplayError(null)
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setRoleplayError('Please log in to continue roleplay.')
+        router.push('/login')
+        return
+      }
+
       const history = nextMessages.slice(-10).map((message) => ({
         speaker: message.speaker,
         text: message.text,
@@ -333,6 +354,7 @@ export default function ExplorePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           narrative,
