@@ -791,7 +791,7 @@ export default function CreateBotPage() {
             <div className="mb-6 rounded-xl border border-gray-700 bg-gray-900/70 p-4 sm:p-5">
               <h2 className="text-lg font-semibold mb-1">Request a New Universe</h2>
               <p className="text-sm text-gray-300 mb-4">
-                Submit a short request and admins can review it in Admin -> Requests.
+                Submit a short request and admins can review it in Admin -{'>'} Requests.
               </p>
 
               <form onSubmit={handleSubmitUniverseRequest} className="space-y-3">
