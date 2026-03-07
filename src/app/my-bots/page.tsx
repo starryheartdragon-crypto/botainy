@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { BOT_UNIVERSES } from "@/lib/botUniverses"
@@ -82,6 +82,7 @@ export default function MyBotsPage() {
   const [loading, setLoading] = useState(true)
   const [publishingId, setPublishingId] = useState<string | null>(null)
   const [savingEditId, setSavingEditId] = useState<string | null>(null)
+  const [uploadingEditAvatarId, setUploadingEditAvatarId] = useState<string | null>(null)
   const [bots, setBots] = useState<MyBot[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [nameSearch, setNameSearch] = useState("")
@@ -97,6 +98,7 @@ export default function MyBotsPage() {
   const [editRules, setEditRules] = useState("")
   const [editStyle, setEditStyle] = useState("")
   const [editGreeting, setEditGreeting] = useState("")
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
 
   const loadBots = useCallback(async () => {
     setLoading(true)
@@ -207,6 +209,7 @@ export default function MyBotsPage() {
     setEditRules(parsedProfile.rules)
     setEditStyle(parsedProfile.style)
     setEditGreeting(parsedProfile.greeting)
+    setEditAvatarUrl(bot.avatar_url)
   }
 
   function cancelEdit() {
@@ -221,6 +224,52 @@ export default function MyBotsPage() {
     setEditRules("")
     setEditStyle("")
     setEditGreeting("")
+    setEditAvatarUrl(null)
+  }
+
+  async function handleEditAvatarUpload(e: ChangeEvent<HTMLInputElement>, botId: string) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+
+    try {
+      setUploadingEditAvatarId(botId)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        toast.error("Not authenticated")
+        router.push("/login")
+        return
+      }
+
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("bucket", "avatars")
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      })
+
+      const payload = (await response.json()) as { url?: string; error?: string }
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Avatar upload failed")
+      }
+
+      setEditAvatarUrl(payload.url)
+      toast.success("Avatar updated")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Avatar upload failed"
+      toast.error(message)
+    } finally {
+      setUploadingEditAvatarId(null)
+    }
   }
 
   async function saveEdit(botId: string) {
@@ -258,6 +307,7 @@ export default function MyBotsPage() {
           rules: editRules.trim(),
           style: editStyle.trim(),
           greeting: editGreeting.trim(),
+          avatarUrl: editAvatarUrl,
         }),
       })
 
@@ -424,6 +474,41 @@ export default function MyBotsPage() {
                       ))}
                     </select>
 
+                    <div className="rounded-xl border border-gray-700 bg-gray-900/40 p-3">
+                      <label className="block text-sm font-medium text-gray-300 mb-3">Bot avatar</label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {editAvatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={editAvatarUrl}
+                            alt={`${editName || bot.name} avatar`}
+                            className="w-14 h-14 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg bg-gray-700" />
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleEditAvatarUpload(e, bot.id)}
+                            disabled={uploadingEditAvatarId === bot.id}
+                            className="text-sm text-gray-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer cursor-pointer"
+                          />
+                          {editAvatarUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setEditAvatarUrl(null)}
+                              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-full text-xs font-semibold transition"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <textarea
                       value={editDescription}
                       onChange={(e) => setEditDescription(e.target.value)}
@@ -501,7 +586,7 @@ export default function MyBotsPage() {
                       </button>
                       <button
                         onClick={() => saveEdit(bot.id)}
-                        disabled={savingEditId === bot.id}
+                        disabled={savingEditId === bot.id || uploadingEditAvatarId === bot.id}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white rounded-full text-sm font-semibold transition"
                       >
                         {savingEditId === bot.id ? "Saving..." : "Save Changes"}
