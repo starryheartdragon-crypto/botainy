@@ -63,11 +63,6 @@ async function ensureGroupMember(groupChatId: string, userId: string) {
   return !!data
 }
 
-function firstRelation<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null
-  return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
 function getErrorMessage(error: unknown, fallback = 'Unknown error') {
   if (typeof error === 'string' && error.trim()) return error
   if (error && typeof error === 'object') {
@@ -247,6 +242,87 @@ async function persistBotMessage({
   return fallbackError ? getErrorMessage(fallbackError, 'Failed to persist bot response') : null
 }
 
+async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatId: string) {
+  const { data, error } = await svc
+    .from('group_chats')
+    .select('*')
+    .eq('id', groupChatId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return {
+      group: null,
+      warning: error ? getErrorMessage(error, 'Failed to load group chat context') : 'Group chat not found',
+    }
+  }
+
+  const row = data as Record<string, unknown>
+  const normalizedGroupType =
+    row.group_type === 'roleplay' || row.group_type === 'ttrpg' ? row.group_type : 'general'
+  const normalizedDmMode = row.dm_mode === 'bot' || row.dm_mode === 'user' ? row.dm_mode : null
+
+  const group: GroupChatContext = {
+    id: String(row.id || groupChatId),
+    name: String(row.name || 'Group Chat'),
+    creator_id: String(row.creator_id || ''),
+    group_type: normalizedGroupType,
+    rules: typeof row.rules === 'string' ? row.rules : null,
+    universe: typeof row.universe === 'string' ? row.universe : null,
+    dm_mode: normalizedDmMode,
+    dm_bot_id: typeof row.dm_bot_id === 'string' ? row.dm_bot_id : null,
+  }
+
+  return { group, warning: null }
+}
+
+async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: string) {
+  const { data: links, error: linksError } = await svc
+    .from('group_chat_bots')
+    .select('bot_id')
+    .eq('group_chat_id', groupChatId)
+
+  if (linksError) {
+    return {
+      bots: [] as GroupBot[],
+      warning: getErrorMessage(linksError, 'Failed to load group bots'),
+    }
+  }
+
+  const botIds = Array.from(
+    new Set((links || []).map((row) => String((row as { bot_id?: string }).bot_id || '')).filter(Boolean))
+  )
+
+  if (botIds.length === 0) {
+    return { bots: [] as GroupBot[], warning: 'No bots are attached to this group chat' }
+  }
+
+  const { data: botRows, error: botError } = await svc
+    .from('bots')
+    .select('id, name, personality')
+    .in('id', botIds)
+
+  if (botError) {
+    return {
+      bots: [] as GroupBot[],
+      warning: getErrorMessage(botError, 'Failed to load bot details'),
+    }
+  }
+
+  const bots = (botRows || [])
+    .map((row) => ({
+      id: String(row.id || ''),
+      name: String(row.name || 'Bot'),
+      personality: String(row.personality || ''),
+    }))
+    .filter((bot) => bot.id.length > 0)
+
+  if (bots.length === 0) {
+    return { bots: [] as GroupBot[], warning: 'Group bot links exist, but bot records were not found' }
+  }
+
+  return { bots, warning: null }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ groupChatId: string }> }
@@ -305,25 +381,22 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    let botWarning: string | null = null
+
     // Bot responses are best-effort; user message delivery should still succeed even if bots fail.
     try {
-      const { data: groupRow } = await svc
-        .from('group_chats')
-        .select('id, name, creator_id, group_type, rules, universe, dm_mode, dm_bot_id')
-        .eq('id', groupChatId)
-        .maybeSingle()
-
-      const group = groupRow as GroupChatContext | null
+      const { group, warning: groupWarning } = await getGroupContext(svc, groupChatId)
+      if (groupWarning) {
+        console.error('Group chat context warning:', groupWarning)
+        botWarning = groupWarning
+      }
 
       if (group) {
-        const { data: botRows } = await svc
-          .from('group_chat_bots')
-          .select('bot_id, bots(id, name, personality)')
-          .eq('group_chat_id', groupChatId)
-
-        const bots: GroupBot[] = (botRows || [])
-          .map((row) => firstRelation((row as { bots?: GroupBot | GroupBot[] | null }).bots))
-          .filter((bot): bot is GroupBot => Boolean(bot?.id && bot?.name))
+        const { bots, warning: botsWarning } = await getGroupBots(svc, groupChatId)
+        if (botsWarning) {
+          console.error('Group chat bots warning:', botsWarning)
+          botWarning = botsWarning
+        }
 
         const respondingBot = pickRespondingBot(group, bots, data.id)
 
@@ -345,6 +418,7 @@ export async function POST(
 
           if (botReply.warning) {
             console.error('Group chat bot generation warning:', botReply.warning)
+            botWarning = botReply.warning
           }
 
           if (botReply.content) {
@@ -357,15 +431,24 @@ export async function POST(
 
             if (persistError) {
               console.error('Group chat bot persist warning:', persistError)
+              botWarning = persistError
             }
           }
         }
       }
     } catch (botError: unknown) {
-      console.error('Failed to generate group chat bot response:', getErrorMessage(botError))
+      const errorMessage = getErrorMessage(botError)
+      console.error('Failed to generate group chat bot response:', errorMessage)
+      botWarning = errorMessage
     }
 
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json(
+      {
+        ...data,
+        bot_warning: botWarning,
+      },
+      { status: 201 }
+    )
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }

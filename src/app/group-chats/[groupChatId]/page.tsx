@@ -152,6 +152,10 @@ export default function GroupChatDetailPage() {
       if (resp.ok) {
         const data = await resp.json().catch(() => null)
         if (data && typeof data === 'object') {
+          const warning = (data as { bot_warning?: unknown }).bot_warning
+          if (typeof warning === 'string' && warning.trim()) {
+            console.warn('Group bot response warning:', warning)
+          }
           upsertMessages([data as GroupMessage])
         }
         setText('')
