@@ -169,12 +169,17 @@ export default function GroupChatDetailPage() {
           const typed = data as {
             userMessage?: GroupMessage
             botMessage?: GroupMessage | null
+            botMessages?: GroupMessage[]
           }
 
           if (typed.userMessage) {
-            upsertMessages(
-              typed.botMessage ? [typed.userMessage, typed.botMessage] : [typed.userMessage]
-            )
+            const returnedBotMessages = Array.isArray(typed.botMessages)
+              ? typed.botMessages.filter((message): message is GroupMessage => Boolean(message?.id))
+              : typed.botMessage
+                ? [typed.botMessage]
+                : []
+
+            upsertMessages([typed.userMessage, ...returnedBotMessages])
           } else {
             upsertMessages([data as GroupMessage])
           }

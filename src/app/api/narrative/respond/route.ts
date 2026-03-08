@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
+import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type Relationship = {
   affection: number
@@ -206,7 +207,11 @@ Rules:
 - relationshipEffects are small shifts in range -6..6.
 - Keep tone and setting continuity.
 - Never write the user's dialogue or actions.
+- In narrative text fields, treat *text* as actions and **text** as important emphasis.
+- You may use these markers inside JSON string values when it improves roleplay clarity.
 - No markdown.`
+
+  const systemPromptWithFormatting = `${systemPrompt}\n\n${ROLEPLAY_FORMATTING_INSTRUCTIONS}`
 
     const userPrompt = `Scenario: ${narrative.title}
 Setting: ${narrative.worldState.setting}
@@ -237,7 +242,7 @@ ${userResponse.trim()}`
         model: openrouterModel,
         temperature: 0.85,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: systemPromptWithFormatting },
           { role: 'user', content: userPrompt },
         ],
       }),

@@ -6,6 +6,7 @@ import {
   resolveOpenRouterModel,
   resolveOpenRouterReferer,
 } from '@/lib/openrouterServer'
+import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -21,6 +22,7 @@ type GroupChatContext = {
   group_type: 'general' | 'roleplay' | 'ttrpg'
   rules: string | null
   universe: string | null
+  persona_relationship_context: string | null
   dm_mode: 'user' | 'bot' | null
   dm_bot_id: string | null
 }
@@ -103,20 +105,28 @@ function isLikelySenderIdConstraintError(error: unknown) {
   )
 }
 
-function pickRespondingBot(group: GroupChatContext, bots: GroupBot[], userMessageId: string) {
+function pickRespondingBot(
+  group: GroupChatContext,
+  bots: GroupBot[],
+  triggerMessageId: string,
+  excludedBotIds: Set<string> = new Set()
+) {
   if (bots.length === 0) return null
 
+  const availableBots = bots.filter((bot) => !excludedBotIds.has(bot.id))
+  const candidates = availableBots.length > 0 ? availableBots : bots
+
   if (group.group_type === 'ttrpg' && group.dm_mode === 'bot' && group.dm_bot_id) {
-    const dmBot = bots.find((bot) => bot.id === group.dm_bot_id)
+    const dmBot = candidates.find((bot) => bot.id === group.dm_bot_id)
     if (dmBot) return dmBot
   }
 
-  const numericSeed = userMessageId
+  const numericSeed = triggerMessageId
     .replace(/-/g, '')
     .split('')
     .reduce((acc, char) => acc + char.charCodeAt(0), 0)
 
-  return bots[numericSeed % bots.length]
+  return candidates[numericSeed % candidates.length]
 }
 
 function buildGroupModePrompt(group: GroupChatContext) {
@@ -125,6 +135,9 @@ function buildGroupModePrompt(group: GroupChatContext) {
       'This is a TTRPG-style group chat.',
       group.rules ? `Table rules: ${group.rules}` : null,
       group.universe ? `Campaign setting: ${group.universe}` : null,
+      group.persona_relationship_context
+        ? `Relationship map to user persona: ${group.persona_relationship_context}`
+        : null,
       'Keep replies immersive, scene-aware, and concise.',
     ]
       .filter(Boolean)
@@ -136,6 +149,9 @@ function buildGroupModePrompt(group: GroupChatContext) {
       'This is a roleplay group chat.',
       group.universe ? `Universe: ${group.universe}` : null,
       group.rules ? `Roleplay rules: ${group.rules}` : null,
+      group.persona_relationship_context
+        ? `Relationship map to user persona: ${group.persona_relationship_context}`
+        : null,
       'Stay in-character and respond naturally to the latest turn.',
     ]
       .filter(Boolean)
@@ -198,6 +214,11 @@ function resolveBotFromMessage(
   }
 
   return null
+}
+
+function isMessageFromBotId(senderId: string, botId: string) {
+  const normalizedSenderId = senderId.trim()
+  return normalizedSenderId === botId || normalizedSenderId === `bot_${botId}`
 }
 
 function isUuid(value: string) {
@@ -273,19 +294,17 @@ async function generateBotReply({
   group,
   bot,
   recentMessages,
-  requestingUserId,
-  latestUserMessage,
+  latestTriggerMessage,
 }: {
   group: GroupChatContext
   bot: GroupBot
   recentMessages: Array<{ sender_id: string; content: string }>
-  requestingUserId: string
-  latestUserMessage: string
+  latestTriggerMessage: string
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
   if (!openrouterApiKey) {
     return {
-      content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+      content: buildOfflineFallbackReply({ group, bot, userMessage: latestTriggerMessage }),
       warning: 'OPENROUTER_API_KEY is not configured on the server; using offline fallback reply',
     }
   }
@@ -296,15 +315,21 @@ async function generateBotReply({
     `You are ${bot.name}.`,
     bot.personality,
     buildGroupModePrompt(group),
+    ROLEPLAY_FORMATTING_INSTRUCTIONS,
     'Only produce your own in-character message. Do not narrate other participants.',
   ]
     .filter(Boolean)
     .join('\n\n')
 
-  const messageHistory = recentMessages.map((message) => ({
-    role: message.sender_id === requestingUserId ? 'user' : 'assistant',
-    content: message.content,
-  }))
+  const messageHistory = recentMessages.map((message) => {
+    const senderId = String(message.sender_id || '')
+    const isCurrentBot = isMessageFromBotId(senderId, bot.id)
+
+    return {
+      role: isCurrentBot ? 'assistant' : 'user',
+      content: message.content,
+    }
+  })
 
   try {
     const openrouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -327,7 +352,7 @@ async function generateBotReply({
     const payload: OpenRouterResponse | null = await openrouterResp.json().catch(() => null)
     if (!openrouterResp.ok) {
       return {
-        content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+        content: buildOfflineFallbackReply({ group, bot, userMessage: latestTriggerMessage }),
         warning: getOpenRouterErrorMessage(
           payload,
           `OpenRouter returned status ${openrouterResp.status}`
@@ -338,14 +363,14 @@ async function generateBotReply({
     return {
       content:
         payload?.choices?.[0]?.message?.content?.trim() ||
-        buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+        buildOfflineFallbackReply({ group, bot, userMessage: latestTriggerMessage }),
       warning: payload?.choices?.[0]?.message?.content?.trim()
         ? null
         : 'OpenRouter returned an empty response; using offline fallback reply',
     }
   } catch (error: unknown) {
     return {
-      content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+      content: buildOfflineFallbackReply({ group, bot, userMessage: latestTriggerMessage }),
       warning: `${getErrorMessage(error, 'OpenRouter request failed')}; using offline fallback reply`,
     }
   }
@@ -424,6 +449,8 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
     group_type: normalizedGroupType,
     rules: typeof row.rules === 'string' ? row.rules : null,
     universe: typeof row.universe === 'string' ? row.universe : null,
+    persona_relationship_context:
+      typeof row.persona_relationship_context === 'string' ? row.persona_relationship_context : null,
     dm_mode: normalizedDmMode,
     dm_bot_id: typeof row.dm_bot_id === 'string' ? row.dm_bot_id : null,
   }
@@ -551,10 +578,11 @@ export async function POST(
       groupBots,
       userMapForInitial
     )
-  const userMessage = initialDecorated[0] || data
+    const userMessage = initialDecorated[0] || data
 
     let botWarning: string | null = null
     let botMessage: Record<string, unknown> | null = null
+    const botMessages: Record<string, unknown>[] = []
 
     // Bot responses are best-effort; user message delivery should still succeed even if bots fail.
     try {
@@ -572,9 +600,28 @@ export async function POST(
           botWarning = botsWarning
         }
 
-        const respondingBot = pickRespondingBot(group, bots, data.id)
+        const maxBotTurns = bots.length > 1 ? 2 : 1
+        let triggerMessage = data as GroupMessageRow
+        const alreadyRespondedBotIds = new Set<string>()
 
-        if (respondingBot) {
+        for (let turn = 0; turn < maxBotTurns; turn += 1) {
+          const botsById = new Map(bots.map((bot) => [bot.id, bot]))
+          const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
+          const triggerBot = resolveBotFromMessage(triggerMessage, botsById, botsByName)
+
+          const excludedBotIds = new Set(alreadyRespondedBotIds)
+          if (triggerBot) {
+            excludedBotIds.add(triggerBot.id)
+          }
+
+          const respondingBot = pickRespondingBot(
+            group,
+            bots,
+            `${triggerMessage.id}:${turn}`,
+            excludedBotIds
+          )
+          if (!respondingBot) break
+
           const { data: recentMessages } = await svc
             .from('group_chat_messages')
             .select('sender_id, content')
@@ -587,8 +634,7 @@ export async function POST(
             group,
             bot: respondingBot,
             recentMessages: recentMessages || [],
-            requestingUserId: user.id,
-            latestUserMessage: content,
+            latestTriggerMessage: triggerMessage.content,
           })
 
           if (botReply.warning) {
@@ -596,29 +642,46 @@ export async function POST(
             botWarning = botReply.warning
           }
 
-          if (botReply.content) {
-            const persistResult = await persistBotMessage({
-              groupChatId,
-              bot: respondingBot,
-              content: botReply.content,
-              fallbackHumanSenderId: group.creator_id,
-            })
+          if (!botReply.content) {
+            break
+          }
 
-            if (persistResult.error) {
-              console.error('Group chat bot persist warning:', persistResult.error)
-              botWarning = persistResult.error
-            }
+          const persistResult = await persistBotMessage({
+            groupChatId,
+            bot: respondingBot,
+            content: botReply.content,
+            fallbackHumanSenderId: group.creator_id,
+          })
 
-            if (persistResult.message) {
-              const botMessageRow = persistResult.message as GroupMessageRow
-              const botUserMap = await getUserSenders(svc, [botMessageRow])
-              const decoratedBot = decorateMessagesWithSenderMeta(
-                [persistResult.message as GroupMessageRow],
-                bots,
-                botUserMap
-              )
-              botMessage = (decoratedBot[0] || persistResult.message) as Record<string, unknown>
-            }
+          if (persistResult.error) {
+            console.error('Group chat bot persist warning:', persistResult.error)
+            botWarning = persistResult.error
+            break
+          }
+
+          if (!persistResult.message) {
+            break
+          }
+
+          const botMessageRow = persistResult.message as GroupMessageRow
+          const botUserMap = await getUserSenders(svc, [botMessageRow])
+          const decoratedBot = decorateMessagesWithSenderMeta(
+            [persistResult.message as GroupMessageRow],
+            bots,
+            botUserMap
+          )
+          const decorated = (decoratedBot[0] || persistResult.message) as Record<string, unknown>
+
+          if (!botMessage) {
+            botMessage = decorated
+          }
+
+          botMessages.push(decorated)
+          alreadyRespondedBotIds.add(respondingBot.id)
+          triggerMessage = botMessageRow
+
+          if (bots.length <= 1) {
+            break
           }
         }
       }
@@ -632,6 +695,7 @@ export async function POST(
       {
         userMessage,
         botMessage,
+        botMessages,
         bot_warning: botWarning,
       },
       { status: 201 }

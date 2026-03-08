@@ -10,6 +10,7 @@ const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 const MAX_ADDITIONAL_USERS = 4
 const MAX_BOTS = 12
+const MAX_PERSONA_RELATIONSHIP_CONTEXT = 2000
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -156,6 +157,7 @@ export async function POST(req: NextRequest) {
       dmMode: rawDmMode,
       dmUserId: rawDmUserId,
       dmBotId: rawDmBotId,
+      personaRelationshipContext: rawPersonaRelationshipContext,
     } = body
 
     const additionalUserIdsRaw = Array.isArray(body?.invitedUserIds)
@@ -256,12 +258,26 @@ export async function POST(req: NextRequest) {
 
     const trimmedRules = typeof rawRules === 'string' ? rawRules.trim() : ''
     const trimmedUniverse = typeof rawUniverse === 'string' ? rawUniverse.trim() : ''
+    const trimmedPersonaRelationshipContext =
+      typeof rawPersonaRelationshipContext === 'string'
+        ? rawPersonaRelationshipContext.trim()
+        : ''
+
+    if (trimmedPersonaRelationshipContext.length > MAX_PERSONA_RELATIONSHIP_CONTEXT) {
+      return NextResponse.json(
+        {
+          error: `Persona relationship notes must be ${MAX_PERSONA_RELATIONSHIP_CONTEXT} characters or less`,
+        },
+        { status: 400 }
+      )
+    }
 
     let rules: string | null = null
     let universe: string | null = null
     let dmMode: 'user' | 'bot' | null = null
     let dmUserId: string | null = null
     let dmBotId: string | null = null
+    let personaRelationshipContext: string | null = null
 
     if (groupType === 'ttrpg') {
       if (!trimmedRules) {
@@ -314,6 +330,10 @@ export async function POST(req: NextRequest) {
       universe = trimmedUniverse || null
     }
 
+    if (groupType === 'roleplay' || groupType === 'ttrpg') {
+      personaRelationshipContext = trimmedPersonaRelationshipContext || null
+    }
+
     // Create group chat
     const { data: groupChat, error: createError } = await serviceClient()
       .from('group_chats')
@@ -329,6 +349,7 @@ export async function POST(req: NextRequest) {
         dm_mode: dmMode,
         dm_user_id: dmUserId,
         dm_bot_id: dmBotId,
+        persona_relationship_context: personaRelationshipContext,
       })
       .select()
       .single()

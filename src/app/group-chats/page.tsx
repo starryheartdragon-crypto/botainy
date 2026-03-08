@@ -48,6 +48,7 @@ export default function GroupChatsPage() {
   const [groupType, setGroupType] = useState<GroupChatType>('general')
   const [rules, setRules] = useState('')
   const [universe, setUniverse] = useState('')
+  const [personaRelationshipContext, setPersonaRelationshipContext] = useState('')
   const [dmMode, setDmMode] = useState<'user' | 'bot'>('user')
   const [dmUserId, setDmUserId] = useState('')
   const [dmBotId, setDmBotId] = useState('')
@@ -218,6 +219,10 @@ export default function GroupChatsPage() {
           groupType,
           rules: groupType === 'general' ? null : rules.trim() || null,
           universe: groupType === 'roleplay' ? universe.trim() || null : null,
+          personaRelationshipContext:
+            groupType === 'roleplay' || groupType === 'ttrpg'
+              ? personaRelationshipContext.trim() || null
+              : null,
           dmMode: groupType === 'ttrpg' ? dmMode : null,
           dmUserId: groupType === 'ttrpg' && dmMode === 'user' ? dmUserId : null,
           dmBotId: groupType === 'ttrpg' && dmMode === 'bot' ? dmBotId : null,
@@ -233,6 +238,7 @@ export default function GroupChatsPage() {
         setGroupType('general')
         setRules('')
         setUniverse('')
+        setPersonaRelationshipContext('')
         setDmMode('user')
         setDmUserId('')
         setDmBotId('')
@@ -356,6 +362,14 @@ export default function GroupChatsPage() {
                 onChange={(e) => setRules(e.target.value)}
                 placeholder={groupType === 'ttrpg' ? 'Campaign rules (required)' : 'Rules (optional)'}
                 className="md:col-span-2 px-4 py-2 rounded-lg bg-gray-950 border border-gray-700 text-white min-h-[88px]"
+              />
+
+              <textarea
+                value={personaRelationshipContext}
+                onChange={(e) => setPersonaRelationshipContext(e.target.value)}
+                placeholder="Persona relationship notes (optional). Example: Luna treats my persona as a childhood friend, Kael sees me as a rival, Mira is secretly protective."
+                className="md:col-span-2 px-4 py-2 rounded-lg bg-gray-950 border border-gray-700 text-white min-h-[88px]"
+                maxLength={2000}
               />
 
               {groupType === 'roleplay' && (

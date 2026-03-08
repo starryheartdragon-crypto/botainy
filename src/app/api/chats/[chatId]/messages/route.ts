@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
+import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string }
@@ -222,7 +223,11 @@ export async function POST(
     const personaPrompt = personaContext
       ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
-    const systemPrompt = `You are ${botInfo.name}. ${botInfo.personality}\n${personaPrompt}`
+    const systemPrompt = [
+      `You are ${botInfo.name}. ${botInfo.personality}`,
+      personaPrompt,
+      ROLEPLAY_FORMATTING_INSTRUCTIONS,
+    ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')
     let botResponseContent: string | null = null
