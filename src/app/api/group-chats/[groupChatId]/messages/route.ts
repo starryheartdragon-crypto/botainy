@@ -49,6 +49,11 @@ type GroupMessageRow = {
   updated_at: string
 }
 
+type GenerationMessage = {
+  sender_id: string
+  content: string
+}
+
 type UserSender = {
   id: string
   username: string | null
@@ -507,6 +512,34 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
   return { bots, warning: null }
 }
 
+async function getRecentMessagesForGeneration(
+  svc: ReturnType<typeof serviceClient>,
+  groupChatId: string
+) {
+  const { data, error } = await svc
+    .from('group_chat_messages')
+    .select('sender_id, content, created_at')
+    .eq('group_chat_id', groupChatId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (error) {
+    return {
+      messages: [] as GenerationMessage[],
+      warning: getErrorMessage(error, 'Failed to load recent group messages'),
+    }
+  }
+
+  const rows = (data || []) as Array<{ sender_id: string; content: string; created_at: string }>
+  const messages = rows
+    .slice()
+    .reverse()
+    .map((row) => ({ sender_id: String(row.sender_id || ''), content: String(row.content || '') }))
+
+  return { messages, warning: null }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ groupChatId: string }> }
@@ -622,18 +655,22 @@ export async function POST(
           )
           if (!respondingBot) break
 
-          const { data: recentMessages } = await svc
-            .from('group_chat_messages')
-            .select('sender_id, content')
-            .eq('group_chat_id', groupChatId)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: true })
-            .limit(20)
+          const { messages: recentMessages, warning: recentMessagesWarning } =
+            await getRecentMessagesForGeneration(svc, groupChatId)
+
+          if (recentMessagesWarning) {
+            console.error('Group chat recent message warning:', recentMessagesWarning)
+            botWarning = recentMessagesWarning
+          }
+
+          const generationMessages = recentMessages.length
+            ? recentMessages
+            : [{ sender_id: String(data.sender_id || user.id), content: String(data.content || content) }]
 
           const botReply = await generateBotReply({
             group,
             bot: respondingBot,
-            recentMessages: recentMessages || [],
+            recentMessages: generationMessages,
             latestTriggerMessage: triggerMessage.content,
           })
 
@@ -679,6 +716,14 @@ export async function POST(
           botMessages.push(decorated)
           alreadyRespondedBotIds.add(respondingBot.id)
           triggerMessage = botMessageRow
+          generationMessages.push({
+            sender_id: String(botMessageRow.sender_id || ''),
+            content: String(botMessageRow.content || ''),
+          })
+
+          if (generationMessages.length > 20) {
+            generationMessages.splice(0, generationMessages.length - 20)
+          }
 
           if (bots.length <= 1) {
             break

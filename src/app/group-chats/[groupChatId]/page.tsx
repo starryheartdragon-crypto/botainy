@@ -55,7 +55,21 @@ export default function GroupChatDetailPage() {
       }
 
       for (const message of incomingMessages) {
-        map.set(message.id, message)
+        const existing = map.get(message.id)
+        if (existing) {
+          map.set(message.id, {
+            ...existing,
+            ...message,
+            sender_is_bot:
+              typeof message.sender_is_bot === 'boolean'
+                ? message.sender_is_bot
+                : existing.sender_is_bot,
+            sender_name: message.sender_name ?? existing.sender_name,
+            sender_avatar_url: message.sender_avatar_url ?? existing.sender_avatar_url,
+          })
+        } else {
+          map.set(message.id, message)
+        }
       }
 
       return Array.from(map.values()).sort(
