@@ -1,5 +1,11 @@
 -- Allow group_chat_messages.sender_id to store bot identifiers (non-auth UUID/text)
 -- This enables persisted bot replies in group chats.
+
+-- Drop policies that depend on sender_id before type conversion.
+DROP POLICY IF EXISTS "Members can send messages to their groups" ON public.group_chat_messages;
+DROP POLICY IF EXISTS "Users can edit their own messages" ON public.group_chat_messages;
+DROP POLICY IF EXISTS "Users can delete their own messages" ON public.group_chat_messages;
+
 DO $$
 DECLARE
   sender_type text;
@@ -42,3 +48,23 @@ BEGIN
   END IF;
 END
 $$;
+
+-- Recreate policies with text-safe sender checks.
+CREATE POLICY "Members can send messages to their groups"
+  ON public.group_chat_messages FOR INSERT
+  WITH CHECK (
+    sender_id = auth.uid()::text AND EXISTS (
+      SELECT 1
+      FROM group_chat_members
+      WHERE group_chat_members.group_chat_id = group_chat_messages.group_chat_id
+      AND group_chat_members.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can edit their own messages"
+  ON public.group_chat_messages FOR UPDATE
+  USING (sender_id = auth.uid()::text);
+
+CREATE POLICY "Users can delete their own messages"
+  ON public.group_chat_messages FOR DELETE
+  USING (sender_id = auth.uid()::text);

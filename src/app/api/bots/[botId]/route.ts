@@ -175,3 +175,53 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ botId: string }> }
+) {
+  try {
+    const { botId } = await params
+    const authHeader = req.headers.get('authorization')
+    const { user, error: authError } = await getUserFromAuthHeader(authHeader)
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
+
+    const { data: existingBot, error: existingBotError } = await serviceClient()
+      .from('bots')
+      .select('id,is_published')
+      .eq('id', botId)
+      .eq('creator_id', user.id)
+      .single()
+
+    if (existingBotError || !existingBot) {
+      return NextResponse.json({ error: 'Bot not found' }, { status: 404 })
+    }
+
+    if (existingBot.is_published) {
+      return NextResponse.json(
+        { error: 'Only private bots and drafts can be deleted' },
+        { status: 400 }
+      )
+    }
+
+    const { error: deleteError } = await serviceClient()
+      .from('bots')
+      .delete()
+      .eq('id', botId)
+      .eq('creator_id', user.id)
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to delete bot'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}

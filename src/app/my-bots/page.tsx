@@ -81,6 +81,7 @@ export default function MyBotsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [publishingId, setPublishingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingEditId, setSavingEditId] = useState<string | null>(null)
   const [uploadingEditAvatarId, setUploadingEditAvatarId] = useState<string | null>(null)
   const [bots, setBots] = useState<MyBot[]>([])
@@ -193,6 +194,61 @@ export default function MyBotsPage() {
       toast.error(message)
     } finally {
       setPublishingId(null)
+    }
+  }
+
+  async function deleteBot(botId: string) {
+    if (!userId) {
+      toast.error("Not authenticated")
+      router.push("/login")
+      return
+    }
+
+    const confirmed = window.confirm(
+      "Delete this private bot/draft? This will permanently remove it and related chats."
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingId(botId)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        toast.error("Not authenticated")
+        router.push('/login')
+        return
+      }
+
+      const response = await fetch(`/api/bots/${botId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const payload = (await response.json()) as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete bot")
+      }
+
+      setBots((current) => current.filter((bot) => bot.id !== botId))
+
+      if (editingBotId === botId) {
+        cancelEdit()
+      }
+
+      toast.success("Bot deleted")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete bot"
+      toast.error(message)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -434,13 +490,22 @@ export default function MyBotsPage() {
                   </div>
 
                   {!bot.is_published && (
-                    <button
-                      onClick={() => publishDraft(bot.id)}
-                      disabled={publishingId === bot.id}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-full text-sm font-semibold transition"
-                    >
-                      {publishingId === bot.id ? "Publishing..." : "Publish"}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => publishDraft(bot.id)}
+                        disabled={publishingId === bot.id || deletingId === bot.id}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-full text-sm font-semibold transition"
+                      >
+                        {publishingId === bot.id ? "Publishing..." : "Publish"}
+                      </button>
+                      <button
+                        onClick={() => deleteBot(bot.id)}
+                        disabled={deletingId === bot.id || publishingId === bot.id}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white rounded-full text-sm font-semibold transition"
+                      >
+                        {deletingId === bot.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={() => startEdit(bot)}

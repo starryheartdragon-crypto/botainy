@@ -132,20 +132,48 @@ function buildGroupModePrompt(group: GroupChatContext) {
   ].join('\n')
 }
 
+function buildOfflineFallbackReply({
+  group,
+  bot,
+  userMessage,
+}: {
+  group: GroupChatContext
+  bot: GroupBot
+  userMessage: string
+}) {
+  const trimmed = userMessage.trim()
+  const shortMessage = trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed
+
+  if (group.group_type === 'ttrpg') {
+    return `${bot.name} leans into the scene. "I hear you: ${shortMessage}. Let's move this encounter forward together."`
+  }
+
+  if (group.group_type === 'roleplay') {
+    return `${bot.name} stays in-character. "${shortMessage}... noted. I am responding from within this world."`
+  }
+
+  return `${bot.name}: "Got it, ${shortMessage}. I'm here and listening."`
+}
+
 async function generateBotReply({
   group,
   bot,
   recentMessages,
   requestingUserId,
+  latestUserMessage,
 }: {
   group: GroupChatContext
   bot: GroupBot
   recentMessages: Array<{ sender_id: string; content: string }>
   requestingUserId: string
+  latestUserMessage: string
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
   if (!openrouterApiKey) {
-    return { content: null, warning: 'OPENROUTER_API_KEY is not configured on the server' }
+    return {
+      content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+      warning: 'OPENROUTER_API_KEY is not configured on the server; using offline fallback reply',
+    }
   }
 
   const model = resolveOpenRouterModel('openrouter/auto')
@@ -185,7 +213,7 @@ async function generateBotReply({
     const payload: OpenRouterResponse | null = await openrouterResp.json().catch(() => null)
     if (!openrouterResp.ok) {
       return {
-        content: null,
+        content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
         warning: getOpenRouterErrorMessage(
           payload,
           `OpenRouter returned status ${openrouterResp.status}`
@@ -194,13 +222,17 @@ async function generateBotReply({
     }
 
     return {
-      content: payload?.choices?.[0]?.message?.content?.trim() || null,
-      warning: null,
+      content:
+        payload?.choices?.[0]?.message?.content?.trim() ||
+        buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+      warning: payload?.choices?.[0]?.message?.content?.trim()
+        ? null
+        : 'OpenRouter returned an empty response; using offline fallback reply',
     }
   } catch (error: unknown) {
     return {
-      content: null,
-      warning: getErrorMessage(error, 'OpenRouter request failed'),
+      content: buildOfflineFallbackReply({ group, bot, userMessage: latestUserMessage }),
+      warning: `${getErrorMessage(error, 'OpenRouter request failed')}; using offline fallback reply`,
     }
   }
 }
@@ -414,6 +446,7 @@ export async function POST(
             bot: respondingBot,
             recentMessages: recentMessages || [],
             requestingUserId: user.id,
+            latestUserMessage: content,
           })
 
           if (botReply.warning) {
