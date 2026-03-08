@@ -41,6 +41,16 @@ async function getUserFromAuthHeader(authHeader: string | null) {
   return { user, error: null }
 }
 
+function normalizePublishedFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1'
+  }
+  return false
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ botId: string }> }
@@ -202,7 +212,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Bot not found' }, { status: 404 })
     }
 
-    if (existingBot.is_published) {
+    if (normalizePublishedFlag(existingBot.is_published)) {
       return NextResponse.json(
         { error: 'Only private bots and drafts can be deleted' },
         { status: 400 }

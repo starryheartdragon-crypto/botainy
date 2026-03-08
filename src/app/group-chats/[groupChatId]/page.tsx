@@ -10,6 +10,9 @@ interface GroupMessage {
   sender_id: string
   content: string
   created_at: string
+  sender_is_bot?: boolean
+  sender_name?: string | null
+  sender_avatar_url?: string | null
 }
 
 interface GroupChatInfo {
@@ -29,6 +32,12 @@ export default function GroupChatDetailPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+
+  const getInitials = (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return 'B'
+    return trimmed.slice(0, 2).toUpperCase()
+  }
 
   const sortedMessages = useMemo(
     () => [...messages].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
@@ -156,7 +165,19 @@ export default function GroupChatDetailPage() {
           if (typeof warning === 'string' && warning.trim()) {
             console.warn('Group bot response warning:', warning)
           }
-          upsertMessages([data as GroupMessage])
+
+          const typed = data as {
+            userMessage?: GroupMessage
+            botMessage?: GroupMessage | null
+          }
+
+          if (typed.userMessage) {
+            upsertMessages(
+              typed.botMessage ? [typed.userMessage, typed.botMessage] : [typed.userMessage]
+            )
+          } else {
+            upsertMessages([data as GroupMessage])
+          }
         }
         setText('')
       }
@@ -183,13 +204,38 @@ export default function GroupChatDetailPage() {
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
         {sortedMessages.map((message) => {
           const mine = message.sender_id === userId
+          const showAvatar = !mine
+          const senderLabel = message.sender_name || (message.sender_is_bot ? 'Bot' : 'User')
           return (
             <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] sm:max-w-md px-4 py-2 rounded-2xl text-sm ${mine ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
-                <p className="break-words">{message.content}</p>
-                <p className="text-[10px] text-gray-300 mt-1">
-                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
+              <div className={`flex items-end gap-2 max-w-[90%] sm:max-w-lg ${mine ? 'flex-row-reverse' : ''}`}>
+                {showAvatar ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 border border-gray-600 shrink-0">
+                    {message.sender_avatar_url ? (
+                      <img
+                        src={message.sender_avatar_url}
+                        alt={senderLabel}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-200 font-semibold">
+                        {getInitials(senderLabel)}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className={`px-4 py-2 rounded-2xl text-sm ${mine ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
+                  {!mine && message.sender_name ? (
+                    <p className={`text-[11px] mb-1 font-medium ${message.sender_is_bot ? 'text-blue-300' : 'text-emerald-300'}`}>
+                      {message.sender_name}
+                    </p>
+                  ) : null}
+                  <p className="break-words">{message.content}</p>
+                  <p className="text-[10px] text-gray-300 mt-1">
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
             </div>
           )

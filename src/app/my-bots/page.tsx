@@ -17,6 +17,16 @@ type MyBot = {
   created_at: string
 }
 
+function normalizePublishedFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value
+  if (typeof value === "number") return value === 1
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+    return normalized === "true" || normalized === "1"
+  }
+  return false
+}
+
 type ParsedCharacterProfile = {
   personality: string
   backstory: string
@@ -145,7 +155,12 @@ export default function MyBotsPage() {
         throw new Error(payload.error || 'Failed to load bots')
       }
 
-      setBots(payload.bots || [])
+      const normalizedBots = (payload.bots || []).map((bot) => ({
+        ...bot,
+        is_published: normalizePublishedFlag(bot.is_published),
+      }))
+
+      setBots(normalizedBots)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load bots"
       toast.error(message)
@@ -454,7 +469,10 @@ export default function MyBotsPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredBots.map((bot) => (
+            {filteredBots.map((bot) => {
+              const isPublished = normalizePublishedFlag(bot.is_published)
+
+              return (
               <div key={bot.id} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
                 <div className="flex items-start gap-3">
                   {bot.avatar_url ? (
@@ -477,7 +495,7 @@ export default function MyBotsPage() {
                       </div>
                     )}
                     <p className="text-xs mt-1">
-                      {bot.is_published ? (
+                      {isPublished ? (
                         <span className="text-green-300">Published</span>
                       ) : (
                         <span className="text-yellow-300">Draft</span>
@@ -489,7 +507,7 @@ export default function MyBotsPage() {
                     </p>
                   </div>
 
-                  {!bot.is_published && (
+                  {!isPublished && (
                     <>
                       <button
                         onClick={() => publishDraft(bot.id)}
@@ -660,7 +678,7 @@ export default function MyBotsPage() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

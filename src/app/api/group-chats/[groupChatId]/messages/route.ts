@@ -29,12 +29,28 @@ type GroupBot = {
   id: string
   name: string
   personality: string
+  avatar_url: string | null
 }
 
 type OpenRouterResponse = {
   choices?: Array<{ message?: { content?: string } }>
   error?: { message?: string } | string | unknown
   message?: unknown
+}
+
+type GroupMessageRow = {
+  id: string
+  group_chat_id: string
+  sender_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+type UserSender = {
+  id: string
+  username: string | null
+  avatar_url: string | null
 }
 
 async function getAuthUser(req: NextRequest) {
@@ -155,6 +171,104 @@ function buildOfflineFallbackReply({
   return `${bot.name}: "Got it, ${shortMessage}. I'm here and listening."`
 }
 
+function resolveBotFromMessage(
+  message: GroupMessageRow,
+  botsById: Map<string, GroupBot>,
+  botsByName: Map<string, GroupBot>
+) {
+  const senderId = String(message.sender_id || '')
+
+  if (senderId.startsWith('bot_')) {
+    const rawId = senderId.slice(4)
+    const byPrefixedId = botsById.get(rawId)
+    if (byPrefixedId) return byPrefixedId
+  }
+
+  const byExactId = botsById.get(senderId)
+  if (byExactId) return byExactId
+
+  const content = String(message.content || '')
+  const prefixMatch = content.match(/^\[([^\]]+)\]\s+/)
+  if (prefixMatch) {
+    const botName = prefixMatch[1]?.trim().toLowerCase()
+    if (botName) {
+      const byName = botsByName.get(botName)
+      if (byName) return byName
+    }
+  }
+
+  return null
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+async function getUserSenders(svc: ReturnType<typeof serviceClient>, messages: GroupMessageRow[]) {
+  const senderIds = Array.from(
+    new Set(messages.map((message) => String(message.sender_id || '').trim()).filter(Boolean))
+  )
+
+  const userIds = senderIds.filter((id) => isUuid(id))
+  if (userIds.length === 0) {
+    return new Map<string, UserSender>()
+  }
+
+  const { data, error } = await svc
+    .from('users')
+    .select('id, username, avatar_url')
+    .in('id', userIds)
+
+  if (error) {
+    console.error('Failed to load user sender metadata:', getErrorMessage(error))
+    return new Map<string, UserSender>()
+  }
+
+  const rows = (data || []) as Array<{ id: string; username: string | null; avatar_url: string | null }>
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        id: row.id,
+        username: row.username,
+        avatar_url: row.avatar_url,
+      },
+    ])
+  )
+}
+
+function decorateMessagesWithSenderMeta(
+  messages: GroupMessageRow[],
+  bots: GroupBot[],
+  usersById: Map<string, UserSender>
+) {
+  const botsById = new Map(bots.map((bot) => [bot.id, bot]))
+  const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
+
+  return messages.map((message) => {
+    const matchedBot = resolveBotFromMessage(message, botsById, botsByName)
+
+    if (!matchedBot) {
+      const userSender = usersById.get(String(message.sender_id || ''))
+      return {
+        ...message,
+        sender_is_bot: false,
+        sender_name: userSender?.username ?? null,
+        sender_avatar_url: userSender?.avatar_url ?? null,
+      }
+    }
+
+    return {
+      ...message,
+      sender_is_bot: true,
+      sender_name: matchedBot.name,
+      sender_avatar_url: matchedBot.avatar_url,
+    }
+  })
+}
+
 async function generateBotReply({
   group,
   bot,
@@ -252,26 +366,36 @@ async function persistBotMessage({
   const candidateSenderIds = [`bot_${bot.id}`, bot.id]
 
   for (const senderId of candidateSenderIds) {
-    const { error } = await svc.from('group_chat_messages').insert({
-      group_chat_id: groupChatId,
-      sender_id: senderId,
-      content,
-    })
+    const { data, error } = await svc
+      .from('group_chat_messages')
+      .insert({
+        group_chat_id: groupChatId,
+        sender_id: senderId,
+        content,
+      })
+      .select('id, group_chat_id, sender_id, content, created_at, updated_at')
+      .single()
 
-    if (!error) return null
+    if (!error) return { message: data, error: null }
     if (!isLikelySenderIdConstraintError(error)) {
-      return getErrorMessage(error, 'Failed to persist bot response')
+      return { message: null, error: getErrorMessage(error, 'Failed to persist bot response') }
     }
   }
 
   // Backward-compatible fallback for databases where sender_id is still UUID-constrained.
-  const { error: fallbackError } = await svc.from('group_chat_messages').insert({
-    group_chat_id: groupChatId,
-    sender_id: fallbackHumanSenderId,
-    content: `[${bot.name}] ${content}`,
-  })
+  const { data: fallbackData, error: fallbackError } = await svc
+    .from('group_chat_messages')
+    .insert({
+      group_chat_id: groupChatId,
+      sender_id: fallbackHumanSenderId,
+      content: `[${bot.name}] ${content}`,
+    })
+    .select('id, group_chat_id, sender_id, content, created_at, updated_at')
+    .single()
 
-  return fallbackError ? getErrorMessage(fallbackError, 'Failed to persist bot response') : null
+  return fallbackError
+    ? { message: null, error: getErrorMessage(fallbackError, 'Failed to persist bot response') }
+    : { message: fallbackData, error: null }
 }
 
 async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatId: string) {
@@ -330,7 +454,7 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
 
   const { data: botRows, error: botError } = await svc
     .from('bots')
-    .select('id, name, personality')
+    .select('id, name, personality, avatar_url')
     .in('id', botIds)
 
   if (botError) {
@@ -345,6 +469,7 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
       id: String(row.id || ''),
       name: String(row.name || 'Bot'),
       personality: String(row.personality || ''),
+      avatar_url: typeof row.avatar_url === 'string' ? row.avatar_url : null,
     }))
     .filter((bot) => bot.id.length > 0)
 
@@ -367,7 +492,10 @@ export async function GET(
     const member = await ensureGroupMember(groupChatId, user.id)
     if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { data, error } = await serviceClient()
+    const svc = serviceClient()
+    const { bots } = await getGroupBots(svc, groupChatId)
+
+    const { data, error } = await svc
       .from('group_chat_messages')
       .select('id, group_chat_id, sender_id, content, created_at, updated_at')
       .eq('group_chat_id', groupChatId)
@@ -376,7 +504,10 @@ export async function GET(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json(data || [])
+    const messageRows = (data || []) as GroupMessageRow[]
+    const usersById = await getUserSenders(svc, messageRows)
+
+    return NextResponse.json(decorateMessagesWithSenderMeta(messageRows, bots, usersById))
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
@@ -401,6 +532,7 @@ export async function POST(
     }
 
     const svc = serviceClient()
+    const { bots: groupBots } = await getGroupBots(svc, groupChatId)
     const { data, error } = await svc
       .from('group_chat_messages')
       .insert({
@@ -413,7 +545,16 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    const userMapForInitial = await getUserSenders(svc, [data as GroupMessageRow])
+    const initialDecorated = decorateMessagesWithSenderMeta(
+      [data as GroupMessageRow],
+      groupBots,
+      userMapForInitial
+    )
+  const userMessage = initialDecorated[0] || data
+
     let botWarning: string | null = null
+    let botMessage: Record<string, unknown> | null = null
 
     // Bot responses are best-effort; user message delivery should still succeed even if bots fail.
     try {
@@ -424,7 +565,8 @@ export async function POST(
       }
 
       if (group) {
-        const { bots, warning: botsWarning } = await getGroupBots(svc, groupChatId)
+        const bots = groupBots
+        const botsWarning = bots.length === 0 ? 'No bots are attached to this group chat' : null
         if (botsWarning) {
           console.error('Group chat bots warning:', botsWarning)
           botWarning = botsWarning
@@ -455,16 +597,27 @@ export async function POST(
           }
 
           if (botReply.content) {
-            const persistError = await persistBotMessage({
+            const persistResult = await persistBotMessage({
               groupChatId,
               bot: respondingBot,
               content: botReply.content,
               fallbackHumanSenderId: group.creator_id,
             })
 
-            if (persistError) {
-              console.error('Group chat bot persist warning:', persistError)
-              botWarning = persistError
+            if (persistResult.error) {
+              console.error('Group chat bot persist warning:', persistResult.error)
+              botWarning = persistResult.error
+            }
+
+            if (persistResult.message) {
+              const botMessageRow = persistResult.message as GroupMessageRow
+              const botUserMap = await getUserSenders(svc, [botMessageRow])
+              const decoratedBot = decorateMessagesWithSenderMeta(
+                [persistResult.message as GroupMessageRow],
+                bots,
+                botUserMap
+              )
+              botMessage = (decoratedBot[0] || persistResult.message) as Record<string, unknown>
             }
           }
         }
@@ -477,7 +630,8 @@ export async function POST(
 
     return NextResponse.json(
       {
-        ...data,
+        userMessage,
+        botMessage,
         bot_warning: botWarning,
       },
       { status: 201 }
