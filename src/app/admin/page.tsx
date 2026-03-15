@@ -41,6 +41,7 @@ type RoomRow = {
   background_url: string | null;
   city_info: string | null;
   notable_bots: string | null;
+  universe: string | null;
   created_at: string;
 };
 
