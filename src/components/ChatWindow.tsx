@@ -404,28 +404,6 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     </div>
   )
 
-      {/* Persona Selector */}
-      <PersonaSelector
-        selectedPersonaId={selectedPersonaId}
-        onSelectPersona={setSelectedPersonaId}
-      />
-
-      {/* Messages */}
-      <MessageList 
-        messages={messages} 
-        userId={userId} 
-        bot={bot}
-        loading={loading}
-        userAvatarUrl={userAvatarUrl}
-        userUsername={userUsername}
-        onEditMessage={handleEditMessage}
-        onDeleteMessage={handleDeleteMessage}
-      />
-
-      {/* Input */}
-      <MessageInput onSendMessage={handleSendMessage} loading={loading} />
-
-      {/* Soundtrack Drawer */}
       <SoundtrackDrawer
         aiTracks={aiTracks}
         userTracks={userTracks}
