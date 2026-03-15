@@ -25,11 +25,48 @@ interface ChatWindowProps {
 export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
-  // ...existing code...
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
   const [userUsername, setUserUsername] = useState<string | null>(null)
-  // ...existing code...
+
+  // SoundtrackDrawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aiTracks, setAiTracks] = useState([]);
+  const [userTracks, setUserTracks] = useState([]);
+  const [selectedTrack, setSelectedTrack] = useState(null);
+
+  // Fetch AI suggestions (stub, replace with API call later)
+  const fetchAiTracks = async () => {
+    // Placeholder: Replace with API call
+    setAiTracks([
+      {
+        title: 'Period Jazz Example',
+        youtubeId: 'dQw4w9WgXcQ',
+        reasoning: 'This matches the character’s brewing anger.',
+        addedBy: 'AI',
+      },
+      {
+        title: 'Modern Rock Example',
+        youtubeId: 'kXYiU_JCYtU',
+        reasoning: 'Anachronistic fit for the mood.',
+        addedBy: 'AI',
+      },
+      {
+        title: 'Cinematic Score Example',
+        youtubeId: 'V-_O7nl0Ii0',
+        reasoning: 'Wild card for dramatic effect.',
+        addedBy: 'AI',
+      },
+    ]);
+  };
+
+  const handleOpenDrawer = () => {
+    fetchAiTracks();
+    setDrawerOpen(true);
+  };
+  const handleCloseDrawer = () => setDrawerOpen(false);
+  const handleAddUserTrack = (track) => setUserTracks((prev) => [...prev, track]);
+  const handleSelectTrack = (track) => setSelectedTrack(track);
 
   const normalizeMessage = useCallback((message: MessagePayload): ChatMessage => ({
     id: message.id,
@@ -300,7 +337,6 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-900 to-gray-950">
-      {/* ...existing code... */}
       {/* Header */}
       <div className="bg-gradient-to-r from-gray-900 to-gray-950 border-b border-gray-800 px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
@@ -322,6 +358,14 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
             <p className="text-xs sm:text-sm text-gray-400">Character Bot</p>
           </div>
         </div>
+        {/* Magic Wand Icon */}
+        <button
+          onClick={handleOpenDrawer}
+          className="ml-4 p-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-md flex items-center"
+          title="Suggest Soundtrack"
+        >
+          <span role="img" aria-label="Magic Wand" className="text-2xl">🪄</span>
+        </button>
       </div>
 
       {/* Persona Selector */}
@@ -344,6 +388,17 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
       {/* Input */}
       <MessageInput onSendMessage={handleSendMessage} loading={loading} />
+
+      {/* Soundtrack Drawer */}
+      <SoundtrackDrawer
+        aiTracks={aiTracks}
+        userTracks={userTracks}
+        onAddUserTrack={handleAddUserTrack}
+        onSelectTrack={handleSelectTrack}
+        selectedTrack={selectedTrack}
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+      />
     </div>
   )
 }
