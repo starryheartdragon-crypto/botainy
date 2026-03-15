@@ -8,6 +8,7 @@ import { ChatMessage, Bot } from '@/types'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
+import { SoundtrackDrawer } from './SoundtrackDrawer'
 
 type MessagePayload = ChatMessage & {
   chat_id?: string
