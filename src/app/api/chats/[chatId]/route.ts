@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canUserAccessBot } from '@/lib/botVisibility'
@@ -196,3 +197,27 @@ export async function DELETE(
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
   }
 }
+
+// Build message history for OpenRouter WITH Dialogue Tagging
+// Move this logic inside the GET handler after bot is retrieved
+
+// Example usage inside GET handler, after bot is defined:
+/*
+const botName = bot?.name ?? 'Bot';
+
+// Define personaContext or set it to null if not available
+const personaContext = null; // Replace with actual persona context if available
+
+const userName = personaContext ? personaContext.name : 'User';
+
+// Ensure recentMessages and user are defined in your context before using them
+const messageHistory = (recentMessages || []).map((msg) => {
+  const isUser = msg.sender_id === user.id;
+  const speakerName = isUser ? userName : botName;
+  
+  return {
+    role: isUser ? 'user' : 'assistant',
+    content: `${speakerName}: ${msg.content}`,
+  };
+});
+*/

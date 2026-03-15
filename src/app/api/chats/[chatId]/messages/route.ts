@@ -207,7 +207,7 @@ export async function POST(
       .select('sender_id, content')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: true })
-      .limit(10)
+      .limit(30)
 
     // Build message history for OpenRouter
     const messageHistory = (recentMessages || []).map((msg) => ({
@@ -226,6 +226,10 @@ export async function POST(
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
+      `### **CRITICAL ROLEPLAY RULES**`,
+      `- ALWAYS stay in character as ${botInfo.name}.`,
+      `- NEVER write dialogue, actions, or thoughts for ${personaContext?.name || 'the user'}.`,
+      `- Drive the narrative forward but leave room for the user to respond.`,
       ROLEPLAY_FORMATTING_INSTRUCTIONS,
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()

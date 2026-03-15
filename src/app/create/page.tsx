@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useCallback, useState } from "react"
@@ -26,6 +27,7 @@ export default function CreateBotPage() {
   const [botRules, setBotRules] = useState("")
   const [botGreeting, setBotGreeting] = useState("")
   const [botStyle, setBotStyle] = useState("")
+  const [botSecrets, setBotSecrets] = useState("")
   const [botPublishNow, setBotPublishNow] = useState(true)
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
   const [botTtrpgRole, setBotTtrpgRole] = useState<"NPC" | "DM" | "PC" | "Encounter">("NPC")
@@ -356,12 +358,12 @@ export default function CreateBotPage() {
         const npcSections = [
           "TTRPG Role: NPC",
           `Core Personality: ${botPersonality.trim()}`,
-          botBackstory.trim() ? `Backstory: ${botBackstory.trim()}` : null,
-          botGoals.trim() ? `Goals & Motivations: ${botGoals.trim()}` : null,
-          botScenario.trim() ? `Preferred Scenario: ${botScenario.trim()}` : null,
-          botRules.trim() ? `Rules / Boundaries: ${botRules.trim()}` : null,
-          botStyle.trim() ? `Speaking Style: ${botStyle.trim()}` : null,
-          botGreeting.trim() ? `Suggested Greeting: ${botGreeting.trim()}` : null,
+          botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
+          botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
+          botScenario.trim() ? `### **Roleplay Scenario**\n${botScenario.trim()}` : null,
+          botRules.trim() ? `### **Rules / Boundaries**\n${botRules.trim()}` : null,
+          botStyle.trim() ? `### **Speaking Style**\n${botStyle.trim()}` : null,
+          botGreeting.trim() ? `### **First Message Hint**\n${botGreeting.trim()}` : null,
         ].filter(Boolean)
 
         finalDescription = botDescription.trim()
@@ -484,12 +486,12 @@ export default function CreateBotPage() {
 
       const personalitySections = [
         `Core Personality: ${botPersonality.trim()}`,
-        botBackstory.trim() ? `Backstory: ${botBackstory.trim()}` : null,
-        botGoals.trim() ? `Goals & Motivations: ${botGoals.trim()}` : null,
-        botScenario.trim() ? `Preferred Scenario: ${botScenario.trim()}` : null,
-        botRules.trim() ? `Rules / Boundaries: ${botRules.trim()}` : null,
-        botStyle.trim() ? `Speaking Style: ${botStyle.trim()}` : null,
-        botGreeting.trim() ? `Suggested Greeting: ${botGreeting.trim()}` : null,
+        botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
+        botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
+        botScenario.trim() ? `### **Roleplay Scenario**\n${botScenario.trim()}` : null,
+        botRules.trim() ? `### **Rules / Boundaries**\n${botRules.trim()}` : null,
+        botStyle.trim() ? `### **Speaking Style**\n${botStyle.trim()}` : null,
+        botGreeting.trim() ? `### **First Message Hint**\n${botGreeting.trim()}` : null,
       ].filter(Boolean)
 
       finalDescription = botDescription.trim()
