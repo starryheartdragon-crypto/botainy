@@ -23,12 +23,45 @@ interface RoomInfo {
   id: string
   name: string
   description: string | null
+
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { PersonaSelector } from '@/components/PersonaSelector'
+import { Users, Bot, Settings, Send, MessageSquarePlus, X } from 'lucide-react'
+
+interface RoomMessage {
+  id: string
+  room_id: string
+  sender_id: string
+  persona_id: string | null
+  content: string
+  created_at: string
+  personas?: {
+    id: string
+    name: string
+    avatar_url: string | null
+  } | null
+}
+
+interface RoomInfo {
+  id: string
+  name: string
+  description: string | null
 }
 
 interface RoomMember {
   user_id: string
   joined_at: string
   username: string | null
+  avatar_url: string | null
+}
+
+interface RoomBot {
+  id: string
+  name: string
   avatar_url: string | null
 }
 
@@ -52,8 +85,13 @@ export default function ChatRoomDetailPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<RoomMember[]>([])
+  const [activeBots, setActiveBots] = useState<RoomBot[]>([])
   const [sendError, setSendError] = useState<string | null>(null)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
+
+  // UI States
+  const [showSidebar, setShowSidebar] = useState(true)
+  const [showBotModal, setShowBotModal] = useState(false)
 
   const sortedMessages = useMemo(
     () => [...messages].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)),
@@ -120,6 +158,13 @@ export default function ChatRoomDetailPage() {
       if (memberResp.ok) {
         const data = await memberResp.json()
         setMembers(Array.isArray(data) ? data : [])
+      }
+
+      // Fetch bots for this room
+      const botResp = await fetch(`/api/chat-rooms/${roomId}/bots`)
+      if (botResp.ok) {
+        const bots = await botResp.json()
+        setActiveBots(Array.isArray(bots) ? bots : [])
       }
 
       setLoading(false)
@@ -238,111 +283,233 @@ export default function ChatRoomDetailPage() {
     }
   }
 
+  // Mock function for adding a bot
+  const handleAddBot = async (botId: string) => {
+    if (activeBots.length >= 5) return alert("Maximum of 5 bots allowed per room.")
+    // await fetch(`/api/chat-rooms/${roomId}/bots`, { method: 'POST', body: JSON.stringify({ botId }) })
+    // Update local state temporarily for preview
+    setActiveBots(prev => [...prev, { id: botId, name: 'New Universe Bot', avatar_url: null }])
+    setShowBotModal(false)
+  }
+
+  const handleRemoveBot = async (botId: string) => {
+    // await fetch(`/api/chat-rooms/${roomId}/bots/${botId}`, { method: 'DELETE' })
+    setActiveBots(prev => prev.filter(b => b.id !== botId))
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">
-        Loading room...
+      <div className="min-h-screen bg-[#0B0E14] flex flex-col items-center justify-center text-gray-400 gap-4">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p>Syncing narrative...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 text-white flex flex-col md:flex-row">
-      <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-800 px-4 sm:px-6 py-4 bg-gray-950/80">
-          <h1 className="text-lg sm:text-xl font-semibold">{room?.name || 'Chat Room'}</h1>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">{room?.description || 'Community room chat'}</p>
-        </div>
+    <div className="flex h-screen bg-[#0B0E14] text-gray-100 overflow-hidden font-sans">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Sleek Header */}
+        <header className="flex-shrink-0 h-16 px-6 border-b border-gray-800/60 bg-[#11151C]/80 backdrop-blur-md flex items-center justify-between z-10">
+          <div className="flex items-center gap-4 truncate">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-900/20">
+              <span className="font-bold text-white tracking-wider">{room?.name?.charAt(0) || 'R'}</span>
+            </div>
+            <div className="truncate">
+              <h1 className="text-lg font-bold text-white truncate">{room?.name || 'Unknown Zone'}</h1>
+              <p className="text-xs text-gray-400 truncate">{room?.description || 'A nexus of storylines'}</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="p-2 rounded-lg hover:bg-gray-800 transition-colors md:hidden text-gray-400"
+          >
+            <Users size={20} />
+          </button>
+        </header>
 
-        <PersonaSelector
-          selectedPersonaId={selectedPersonaId}
-          onSelectPersona={handleSelectPersona}
-        />
-
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
-          {sortedMessages.map((message) => {
+        {/* Message Feed */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth custom-scrollbar">
+          {sortedMessages.map((message, i) => {
             const mine = message.sender_id === userId
-            const personaName = message.personas?.name
+            const personaName = message.personas?.name || 'Unknown entity'
             const personaAvatar = message.personas?.avatar_url
+            const showHeader = i === 0 || sortedMessages[i-1].sender_id !== message.sender_id || sortedMessages[i-1].persona_id !== message.persona_id
+
             return (
-              <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] sm:max-w-md px-4 py-2 rounded-2xl text-sm ${mine ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
-                  {personaName && (
-                    <div className="flex items-center gap-2 mb-1">
+              <div key={message.id} className={`flex w-full ${mine ? 'justify-end' : 'justify-start'} group`}>
+                <div className={`flex max-w-[85%] md:max-w-[70%] gap-3 ${mine ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar */}
+                  {showHeader ? (
+                    <div className="w-9 h-9 flex-shrink-0 rounded-full bg-gray-800 border border-gray-700 overflow-hidden flex items-center justify-center mt-1">
                       {personaAvatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={personaAvatar}
-                          alt={personaName}
-                          className="w-5 h-5 rounded-full object-cover border border-gray-500"
-                        />
+                        <img src={personaAvatar} alt={personaName} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-gray-600" />
+                        <span className="text-xs font-bold text-gray-400">{personaName.charAt(0)}</span>
                       )}
-                      <span className="text-[11px] text-gray-200 font-medium truncate">{personaName}</span>
                     </div>
-                  )}
-                  <p className="break-words">{message.content}</p>
-                  <p className="text-[10px] text-gray-300 mt-1">
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  ) : <div className="w-9 flex-shrink-0" /> /* Spacer for grouped messages */}
+
+                  {/* Message Bubble */}
+                  <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                    {showHeader && (
+                      <div className="flex items-baseline gap-2 mb-1 px-1">
+                        <span className="text-sm font-semibold text-gray-200">{personaName}</span>
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed shadow-sm ${
+                      mine 
+                        ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                        : 'bg-[#1C212B] text-gray-100 border border-gray-800 rounded-tl-sm'
+                    }`}>
+                      <p className="break-words whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
 
-        <div className="border-t border-gray-800 p-3 sm:p-4 bg-gray-950">
+        {/* Integrated Input Area */}
+        <div className="p-4 bg-[#0B0E14] border-t border-gray-800/60 z-10 relative">
           {sendError && (
-            <div className="mb-2 text-xs text-red-300 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">
+            <div className="absolute -top-10 left-4 right-4 text-xs text-red-200 bg-red-900/60 backdrop-blur border border-red-800 rounded-lg px-3 py-2 text-center shadow-lg">
               {sendError}
             </div>
           )}
-          <div className="flex gap-2 sm:gap-3">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  sendMessage()
-                }
-              }}
-              placeholder="Message room..."
-              className="flex-1 px-4 py-2 sm:py-3 bg-gray-900 border border-gray-700 rounded-full text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={sending || !text.trim()}
-              className="px-5 sm:px-6 py-2 sm:py-3 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 text-sm sm:text-base"
-            >
-              {sending ? '...' : 'Send'}
-            </button>
+          
+          <div className="max-w-5xl mx-auto bg-[#161B22] rounded-2xl border border-gray-700/50 p-2 shadow-xl focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all">
+            
+            {/* Context/Persona Bar above input */}
+            <div className="flex items-center justify-between px-2 pb-2 mb-1 border-b border-gray-800/50">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="font-medium text-gray-500">Speaking as:</span>
+                <div className="scale-90 origin-left">
+                  {/* Use your existing PersonaSelector here. You may want to strip its background in its own component so it blends in */}
+                  <PersonaSelector selectedPersonaId={selectedPersonaId} onSelectPersona={handleSelectPersona} />
+                </div>
+              </div>
+              <span className="text-[10px] text-gray-600 hidden sm:block tracking-wide">
+                CYCLES AT 12/6 AM/PM EST
+              </span>
+            </div>
+
+            <div className="flex items-end gap-2 px-1">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage()
+                  }
+                }}
+                placeholder="Weave your narrative..."
+                className="flex-1 max-h-32 min-h-[44px] bg-transparent resize-none py-3 px-2 text-[15px] text-gray-100 placeholder-gray-500 focus:outline-none scrollbar-hide"
+                rows={1}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={sending || !text.trim()}
+                className="mb-1 p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-800 disabled:text-gray-600 text-white transition-colors group"
+              >
+                <Send size={18} className={`transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform ${sending ? 'animate-pulse' : ''}`} />
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-[11px] text-gray-400">
-            Chat room messages reset every 6 hours at 12am, 6am, 12pm, and 6pm (New York time).
-          </p>
         </div>
       </div>
 
-      {/* Sidebar: In room member list */}
-      <aside className="w-full md:w-64 border-l border-gray-800 bg-gray-950/90 p-4 md:p-6 flex flex-col min-h-screen">
-        <h2 className="text-base font-semibold text-gray-200 mb-3">In room ({members.length})</h2>
-        <div className="flex flex-wrap md:flex-col gap-2">
-          {members.length === 0 ? (
-            <span className="text-xs text-gray-400">No members yet.</span>
-          ) : (
-            members.map((member) => (
-              <span
-                key={member.user_id}
-                className="text-xs px-2 py-1 rounded-full border border-gray-700 bg-gray-900/80 text-gray-200 whitespace-nowrap"
+      {/* Right Sidebar - Info, Members & Bots */}
+      <div className={`${showSidebar ? 'w-72' : 'w-0'} flex-shrink-0 bg-[#11151C] border-l border-gray-800/60 transition-all duration-300 overflow-y-auto hidden md:flex flex-col`}>
+        
+        <div className="p-5 border-b border-gray-800/60">
+          <h2 className="text-sm font-bold tracking-wider text-gray-400 uppercase mb-4 flex items-center gap-2">
+            <Bot size={16} /> 
+            Universe Bots <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-full text-gray-300">{activeBots.length}/5</span>
+          </h2>
+          
+          <div className="space-y-2">
+            {activeBots.map(bot => (
+              <div key={bot.id} className="flex items-center justify-between group p-2 rounded-lg hover:bg-gray-800 transition-colors">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="w-6 h-6 rounded bg-indigo-900/50 flex items-center justify-center text-indigo-400 text-xs font-bold border border-indigo-500/30">
+                    {bot.name.charAt(0)}
+                  </div>
+                  <span className="text-sm text-gray-200 truncate">{bot.name}</span>
+                </div>
+                <button onClick={() => handleRemoveBot(bot.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            
+            {activeBots.length < 5 && (
+              <button 
+                onClick={() => setShowBotModal(true)}
+                className="w-full mt-2 py-2 px-3 rounded-lg border border-dashed border-gray-700 text-gray-400 text-sm hover:border-indigo-500 hover:text-indigo-400 transition-colors flex items-center justify-center gap-2"
               >
-                {member.username || member.user_id}
-              </span>
-            ))
-          )}
+                <MessageSquarePlus size={16} />
+                Summon Bot
+              </button>
+            )}
+          </div>
         </div>
-      </aside>
+
+        <div className="p-5 flex-1">
+          <h2 className="text-sm font-bold tracking-wider text-gray-400 uppercase mb-4 flex items-center gap-2">
+            <Users size={16} /> Active Cast ({members.length})
+          </h2>
+          <div className="space-y-3">
+            {members.map((member) => (
+              <div key={member.user_id} className="flex items-center gap-3 p-1">
+                <div className="relative">
+                  <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
+                    <span className="text-xs font-medium text-gray-300">{member.username?.charAt(0) || 'U'}</span>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#11151C] rounded-full"></div>
+                </div>
+                <div className="truncate flex-1">
+                  <p className="text-sm font-medium text-gray-200 truncate">{member.username || 'Anonymous'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Simple Bot Selection Modal Overlay */}
+      {showBotModal && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#161B22] border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-white">Summon to Universe</h3>
+              <button onClick={() => setShowBotModal(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">Select a character from this universe's roster to integrate into the narrative. (Limit 5 per room)</p>
+            
+            {/* Mock List of available bots */}
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+              {['Aria (Sci-Fi)', 'Grog (Fantasy)', 'The Detective (Noir)'].map((mockBot, idx) => (
+                <button 
+                  key={idx}
+                  onClick={() => handleAddBot(`mock-id-${idx}`)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-900/50 hover:bg-indigo-600/20 border border-transparent hover:border-indigo-500/50 transition-all text-left"
+                >
+                  <Bot size={20} className="text-indigo-400" />
+                  <span className="text-gray-200 font-medium">{mockBot}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
