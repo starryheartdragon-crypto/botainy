@@ -23,11 +23,13 @@
     "axios": "^1.6.0",
     "glob": "^13.0.6",
     "lucide-react": "^0.577.0",
+    "miniflare": "^4.20250906.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-easy-crop": "^5.5.6",
     "react-hot-toast": "^2.4.0",
+    "undici": "^7.24.3",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
