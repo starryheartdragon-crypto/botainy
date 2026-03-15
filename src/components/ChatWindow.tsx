@@ -71,8 +71,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     setDrawerOpen(true);
   };
   const handleCloseDrawer = () => setDrawerOpen(false);
-  const handleAddUserTrack = (track) => setUserTracks((prev) => [...prev, track]);
-  const handleSelectTrack = (track) => setSelectedTrack(track);
+  const handleAddUserTrack = (track: Track) => setUserTracks((prev) => [...prev, track]);
+  const handleSelectTrack = (track: Track) => setSelectedTrack(track);
 
   const normalizeMessage = useCallback((message: MessagePayload): ChatMessage => ({
     id: message.id,
