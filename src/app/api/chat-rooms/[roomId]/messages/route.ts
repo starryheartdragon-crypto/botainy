@@ -39,7 +39,7 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
 
     // Example bot selection by universe/city
     // Replace with DB query or config for production
-    let cityBots = []
+    let cityBots: { name: string; personality: string }[] = []
     if (universe === 'Game of Thrones') {
       if (city === 'Kings Landing') {
         cityBots = [
