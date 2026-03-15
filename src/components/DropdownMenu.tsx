@@ -52,6 +52,19 @@ export default function DropdownMenu() {
     }
   }
 
+  async function fetchProfile(token: string): Promise<{ username: string | null; avatar_url: string | null }> {
+    try {
+      const resp = await fetch("/api/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) return { username: null, avatar_url: null }
+      const data = await resp.json() as { username?: string | null; avatar_url?: string | null }
+      return { username: data.username ?? null, avatar_url: data.avatar_url ?? null }
+    } catch {
+      return { username: null, avatar_url: null }
+    }
+  }
+
   async function checkAdminStatus(token: string | null, mounted: boolean) {
     if (!token) {
       if (mounted) setIsAdmin(false)
@@ -94,16 +107,19 @@ export default function DropdownMenu() {
           return
         }
 
+        const token = sessionData.session?.access_token ?? null
+        const profile = token ? await fetchProfile(token) : { username: null, avatar_url: null }
+
         if (mounted) {
           setUser({
             id: authUser.id,
-            username: authUser.user_metadata?.username ?? authUser.email ?? "User",
-            avatar_url: authUser.user_metadata?.avatar_url ?? null,
+            username: profile.username ?? authUser.user_metadata?.username ?? "User",
+            avatar_url: profile.avatar_url ?? authUser.user_metadata?.avatar_url ?? null,
             is_admin: false,
           })
         }
 
-        await checkAdminStatus(sessionData.session?.access_token ?? null, mounted)
+        await checkAdminStatus(token, mounted)
       } catch {
         const fallbackToken = getStoredAccessToken()
         if (fallbackToken) {
@@ -130,16 +146,19 @@ export default function DropdownMenu() {
             return
           }
 
+          const token = session?.access_token ?? getStoredAccessToken()
+          const profile = token ? await fetchProfile(token) : { username: null, avatar_url: null }
+
           if (mounted) {
             setUser({
               id: authUser.id,
-              username: authUser.user_metadata?.username ?? authUser.email ?? "User",
-              avatar_url: authUser.user_metadata?.avatar_url ?? null,
+              username: profile.username ?? authUser.user_metadata?.username ?? "User",
+              avatar_url: profile.avatar_url ?? authUser.user_metadata?.avatar_url ?? null,
               is_admin: false,
             })
           }
 
-          await checkAdminStatus(session?.access_token ?? getStoredAccessToken(), mounted)
+          await checkAdminStatus(token, mounted)
         } catch {
           if (mounted) setIsAdmin(false)
         }
@@ -238,7 +257,7 @@ export default function DropdownMenu() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatar_url} alt="avatar" className="w-10 h-10 rounded-full object-cover border border-gray-700 shadow" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-sm font-bold text-white ">U</div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-sm font-bold text-white">{user?.username?.[0]?.toUpperCase() ?? "?"}</div>
             )}
             <div>
               <div className="text-sm font-semibold text-gray-100">{user?.username ?? "Guest"}</div>
