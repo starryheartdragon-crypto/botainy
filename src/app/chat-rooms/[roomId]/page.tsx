@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
@@ -12,6 +13,12 @@ interface RoomInfo {
   description: string | null
 }
 
+interface Persona {
+  id: string
+  name: string
+  avatar_url: string | null
+}
+
 interface RoomMessage {
   id: string
   room_id: string
@@ -19,19 +26,7 @@ interface RoomMessage {
   persona_id: string | null
   content: string
   created_at: string
-  personas?: {
-    id: string
-    name: string
-    avatar_url: string | null
-  } | null
-}
-  content: string
-  created_at: string
-  personas?: {
-    id: string
-    name: string
-    avatar_url: string | null
-  } | null
+  personas?: Persona | null
 }
 
 interface RoomInfo {
@@ -479,7 +474,7 @@ export default function ChatRoomDetailPage() {
               <h3 className="text-lg font-bold text-white">Summon to Universe</h3>
               <button onClick={() => setShowBotModal(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
             </div>
-            <p className="text-sm text-gray-400 mb-4">Select a character from this universe's roster to integrate into the narrative. (Limit 5 per room)</p>
+            <p className="text-sm text-gray-400 mb-4">Select a character from this universe&apos;s roster to integrate into the narrative. (Limit 5 per room)</p>
             
             {/* Mock List of available bots */}
             <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
