@@ -24,8 +24,47 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
       content: msg.content,
     }))
 
-    // System prompt for bot
-    const systemPrompt = 'You are a bot in a chat room. Respond in character and avoid repeating actions.'
+    // Fetch chat room metadata
+    const { data: roomMeta, error: roomMetaError } = await serviceClient()
+      .from('chat_rooms')
+      .select('city_info, universe')
+      .eq('id', roomId)
+      .maybeSingle()
+    if (roomMetaError || !roomMeta) {
+      return NextResponse.json({ error: 'Room metadata not found' }, { status: 500 })
+    }
+
+    const city = roomMeta.city_info || 'Unknown City'
+    const universe = roomMeta.universe || 'Unknown Universe'
+
+    // Example bot selection by universe/city
+    // Replace with DB query or config for production
+    let cityBots = []
+    if (universe === 'Game of Thrones') {
+      if (city === 'Kings Landing') {
+        cityBots = [
+          { name: 'Tyrion Lannister', personality: 'Clever, witty, politically astute.' },
+          { name: 'Petyr Baelish', personality: 'Scheming, manipulative, ambitious.' },
+          { name: 'Varys', personality: 'Mysterious, strategic, secretive.' },
+        ]
+      } else if (city === 'Winterfell') {
+        cityBots = [
+          { name: 'Jon Snow', personality: 'Honorable, stoic, brave.' },
+          { name: 'Sansa Stark', personality: 'Resilient, intelligent, diplomatic.' },
+        ]
+      }
+      // Add more cities/universes as needed
+    }
+
+    // Build participant list for prompt
+    const participantNames = cityBots.map(bot => bot.name).join(', ')
+    const systemPrompt = [
+      `You are a bot in the city of ${city}, within the universe of ${universe}.`,
+      participantNames ? `The following characters are currently present in this chat room: ${participantNames}.` : '',
+      'Respond in character and avoid repeating actions.',
+      'Only characters who would be in this city and universe should appear.',
+      'If a character is speaking to someone else, do not hijack the conversation. You may react physically or observe, but do not interrupt their dialogue.',
+    ].filter(Boolean).join('\n\n')
 
     // OpenRouter API call
     const openrouterApiKey = process.env.OPENROUTER_API_KEY

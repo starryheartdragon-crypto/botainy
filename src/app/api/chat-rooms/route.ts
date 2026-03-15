@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     const backgroundUrl = String(body?.background_url || '').trim()
     const cityInfo = String(body?.city_info || '').trim()
     const notableBots = String(body?.notable_bots || '').trim()
+    const universe = String(body?.universe || '').trim()
 
     if (!name) {
       return NextResponse.json({ error: 'Room name is required' }, { status: 400 })
@@ -76,8 +77,9 @@ export async function POST(req: NextRequest) {
         background_url: backgroundUrl || null,
         city_info: cityInfo || null,
         notable_bots: notableBots || null,
+        universe: universe || null,
       })
-      .select('id, name, description, background_url, city_info, notable_bots, created_at')
+      .select('id, name, description, background_url, city_info, notable_bots, universe, created_at')
       .single()
 
     if (error) {
