@@ -257,6 +257,9 @@ export async function POST(
               ...messageHistory,
             ],
             model: openrouterModel,
+            temperature: 0.85,          // Slightly higher creativity (standard is often 0.7)
+            frequency_penalty: 0.4,     // Penalizes the bot for using the exact same words repeatedly
+            presence_penalty: 0.4,      // Encourages the bot to introduce new concepts and actions
           }),
         })
 
