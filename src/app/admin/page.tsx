@@ -1,3 +1,4 @@
+import AdminChatRoomEditor from "@/components/AdminChatRoomEditor";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -512,10 +513,21 @@ function ChatRoomsTab() {
     }
   }
 
+  // ...existing code...
+  const [editingRoom, setEditingRoom] = useState<RoomRow | null>(null);
+  const [editToken, setEditToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchToken() {
+      const token = await getAccessToken();
+      setEditToken(token);
+    }
+    fetchToken();
+  }, []);
+
   return (
     <div>
       <h2 className="text-xl font-bold mb-4">Chat Rooms</h2>
-
       <form onSubmit={handleCreate} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Room name" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
@@ -525,6 +537,25 @@ function ChatRoomsTab() {
         <input value={notableBots} onChange={e => setNotableBots(e.target.value)} placeholder="Notable bots (comma-separated)" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded col-span-1 md:col-span-2">{loading ? "Creating..." : "Create"}</button>
       </form>
+      {editingRoom && editToken && (
+        <div className="mb-8">
+          <AdminChatRoomEditor
+            room={{
+              ...editingRoom,
+              universe: (editingRoom as any).universe || '',
+              description: editingRoom.description || '',
+              background_url: editingRoom.background_url || '',
+              city_info: editingRoom.city_info || '',
+              notable_bots: editingRoom.notable_bots || '',
+            }}
+            token={editToken}
+            onSave={() => {
+              setEditingRoom(null);
+              supabase.from("chat_rooms").select("*").order("created_at", { ascending: false }).then(({ data }) => setRooms(data || []));
+            }}
+          />
+        </div>
+      )}
       {rooms.length === 0 ? <div className="text-gray-400">No chat rooms.</div> : (
         <ul className="space-y-4">
           {rooms.map(r => (
@@ -543,9 +574,9 @@ function ChatRoomsTab() {
                   {r.notable_bots && (
                     <div className="ml-2 text-xs text-blue-300 bg-blue-900/30 px-2 py-1 rounded hover:bg-blue-900/60 transition-all cursor-pointer" title={r.notable_bots}>Notable Bots</div>
                   )}
+                  <button className="ml-2 px-2 py-1 bg-blue-700 text-white rounded text-xs hover:bg-blue-800" onClick={() => setEditingRoom(r)}>Edit</button>
                 </div>
               </div>
-              {/* Soft animation: fade bg on hover */}
             </li>
           ))}
         </ul>
