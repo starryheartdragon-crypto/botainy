@@ -81,6 +81,9 @@ export default function CreateBotPage() {
 
   const [personaName, setPersonaName] = useState("")
   const [personaDescription, setPersonaDescription] = useState("")
+  const [personaGender, setPersonaGender] = useState("")
+  const [personaCustomGender, setPersonaCustomGender] = useState("")
+  const [personaAppearance, setPersonaAppearance] = useState("")
   const [personaBackstory, setPersonaBackstory] = useState("")
   const [personaGoals, setPersonaGoals] = useState("")
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
@@ -601,8 +604,18 @@ export default function CreateBotPage() {
       return
     }
 
+    const genderLabel =
+      personaGender === "male" ? "Male (he/him)" :
+      personaGender === "female" ? "Female (she/her)" :
+      personaGender === "non-binary" ? "Non-binary (they/them)" :
+      personaGender === "gender-fluid" ? "Gender fluid (any/all pronouns)" :
+      personaGender === "custom" ? (personaCustomGender.trim() || "Custom") :
+      null
+
     const descriptionSections = [
       personaDescription.trim(),
+      genderLabel ? `Gender/Pronouns: ${genderLabel}` : null,
+      personaAppearance.trim() ? `Appearance: ${personaAppearance.trim()}` : null,
       personaBackstory.trim() ? `Backstory: ${personaBackstory.trim()}` : null,
       personaGoals.trim() ? `Goals & Intentions: ${personaGoals.trim()}` : null,
     ].filter(Boolean)
@@ -633,6 +646,9 @@ export default function CreateBotPage() {
       toast.success("Persona created and added to your chat personas")
       setPersonaName("")
       setPersonaDescription("")
+      setPersonaGender("")
+      setPersonaCustomGender("")
+      setPersonaAppearance("")
       setPersonaBackstory("")
       setPersonaGoals("")
       setPersonaAvatarUrl(null)
@@ -1693,6 +1709,30 @@ export default function CreateBotPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-1.5">Gender / Pronouns</label>
+                <select
+                  value={personaGender}
+                  onChange={(e) => { setPersonaGender(e.target.value); if (e.target.value !== "custom") setPersonaCustomGender("") }}
+                  className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                >
+                  <option value="">— Select —</option>
+                  <option value="male">Male (he/him)</option>
+                  <option value="female">Female (she/her)</option>
+                  <option value="non-binary">Non-binary (they/them)</option>
+                  <option value="gender-fluid">Gender fluid (any/all pronouns)</option>
+                  <option value="custom">Custom...</option>
+                </select>
+                {personaGender === "custom" && (
+                  <input
+                    value={personaCustomGender}
+                    onChange={(e) => setPersonaCustomGender(e.target.value)}
+                    placeholder="e.g. she/they, xe/xem, it/its..."
+                    className="w-full mt-2 p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                )}
+              </div>
+
+              <div>
                 <label className="block text-sm font-semibold text-gray-300 mb-1.5">
                   Persona Overview <span className="text-red-400">*</span>
                 </label>
@@ -1703,6 +1743,17 @@ export default function CreateBotPage() {
                   className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
                   rows={3}
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-1.5">Appearance</label>
+                <textarea
+                  value={personaAppearance}
+                  onChange={(e) => setPersonaAppearance(e.target.value)}
+                  placeholder="Physical description: hair, eyes, build, clothing style, distinguishing features..."
+                  className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                  rows={3}
                 />
               </div>
 
