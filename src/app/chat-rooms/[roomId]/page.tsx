@@ -247,92 +247,102 @@ export default function ChatRoomDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 text-white flex flex-col">
-      <div className="border-b border-gray-800 px-4 sm:px-6 py-4 bg-gray-950/80">
-        <h1 className="text-lg sm:text-xl font-semibold">{room?.name || 'Chat Room'}</h1>
-        <p className="text-xs sm:text-sm text-gray-400 mt-1">{room?.description || 'Community room chat'}</p>
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs text-gray-400 shrink-0">In room ({members.length}):</span>
-          {members.map((member) => (
-            <span
-              key={member.user_id}
-              className="text-xs px-2 py-1 rounded-full border border-gray-700 bg-gray-900/80 text-gray-200 whitespace-nowrap"
-            >
-              {member.username || member.user_id}
-            </span>
-          ))}
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 text-white flex flex-col md:flex-row">
+      <div className="flex-1 flex flex-col">
+        <div className="border-b border-gray-800 px-4 sm:px-6 py-4 bg-gray-950/80">
+          <h1 className="text-lg sm:text-xl font-semibold">{room?.name || 'Chat Room'}</h1>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">{room?.description || 'Community room chat'}</p>
         </div>
-      </div>
 
-      <PersonaSelector
-        selectedPersonaId={selectedPersonaId}
-        onSelectPersona={handleSelectPersona}
-      />
+        <PersonaSelector
+          selectedPersonaId={selectedPersonaId}
+          onSelectPersona={handleSelectPersona}
+        />
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
-        {sortedMessages.map((message) => {
-          const mine = message.sender_id === userId
-          const personaName = message.personas?.name
-          const personaAvatar = message.personas?.avatar_url
-          return (
-            <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] sm:max-w-md px-4 py-2 rounded-2xl text-sm ${mine ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
-                {personaName && (
-                  <div className="flex items-center gap-2 mb-1">
-                    {personaAvatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={personaAvatar}
-                        alt={personaName}
-                        className="w-5 h-5 rounded-full object-cover border border-gray-500"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-gray-600" />
-                    )}
-                    <span className="text-[11px] text-gray-200 font-medium truncate">{personaName}</span>
-                  </div>
-                )}
-                <p className="break-words">{message.content}</p>
-                <p className="text-[10px] text-gray-300 mt-1">
-                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
+          {sortedMessages.map((message) => {
+            const mine = message.sender_id === userId
+            const personaName = message.personas?.name
+            const personaAvatar = message.personas?.avatar_url
+            return (
+              <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] sm:max-w-md px-4 py-2 rounded-2xl text-sm ${mine ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
+                  {personaName && (
+                    <div className="flex items-center gap-2 mb-1">
+                      {personaAvatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={personaAvatar}
+                          alt={personaName}
+                          className="w-5 h-5 rounded-full object-cover border border-gray-500"
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-gray-600" />
+                      )}
+                      <span className="text-[11px] text-gray-200 font-medium truncate">{personaName}</span>
+                    </div>
+                  )}
+                  <p className="break-words">{message.content}</p>
+                  <p className="text-[10px] text-gray-300 mt-1">
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
+            )
+          })}
+        </div>
+
+        <div className="border-t border-gray-800 p-3 sm:p-4 bg-gray-950">
+          {sendError && (
+            <div className="mb-2 text-xs text-red-300 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">
+              {sendError}
             </div>
-          )
-        })}
+          )}
+          <div className="flex gap-2 sm:gap-3">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  sendMessage()
+                }
+              }}
+              placeholder="Message room..."
+              className="flex-1 px-4 py-2 sm:py-3 bg-gray-900 border border-gray-700 rounded-full text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={sending || !text.trim()}
+              className="px-5 sm:px-6 py-2 sm:py-3 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 text-sm sm:text-base"
+            >
+              {sending ? '...' : 'Send'}
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Chat room messages reset every 6 hours at 12am, 6am, 12pm, and 6pm (New York time).
+          </p>
+        </div>
       </div>
 
-      <div className="border-t border-gray-800 p-3 sm:p-4 bg-gray-950">
-        {sendError && (
-          <div className="mb-2 text-xs text-red-300 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">
-            {sendError}
-          </div>
-        )}
-        <div className="flex gap-2 sm:gap-3">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                sendMessage()
-              }
-            }}
-            placeholder="Message room..."
-            className="flex-1 px-4 py-2 sm:py-3 bg-gray-900 border border-gray-700 rounded-full text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={sending || !text.trim()}
-            className="px-5 sm:px-6 py-2 sm:py-3 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-60 text-sm sm:text-base"
-          >
-            {sending ? '...' : 'Send'}
-          </button>
+      {/* Sidebar: In room member list */}
+      <aside className="w-full md:w-64 border-l border-gray-800 bg-gray-950/90 p-4 md:p-6 flex flex-col min-h-screen">
+        <h2 className="text-base font-semibold text-gray-200 mb-3">In room ({members.length})</h2>
+        <div className="flex flex-wrap md:flex-col gap-2">
+          {members.length === 0 ? (
+            <span className="text-xs text-gray-400">No members yet.</span>
+          ) : (
+            members.map((member) => (
+              <span
+                key={member.user_id}
+                className="text-xs px-2 py-1 rounded-full border border-gray-700 bg-gray-900/80 text-gray-200 whitespace-nowrap"
+              >
+                {member.username || member.user_id}
+              </span>
+            ))
+          )}
         </div>
-        <p className="mt-2 text-[11px] text-gray-400">
-          Chat room messages reset every 6 hours at 12am, 6am, 12pm, and 6pm (New York time).
-        </p>
-      </div>
+      </aside>
     </div>
   )
 }
