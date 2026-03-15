@@ -19,12 +19,13 @@ interface RoomMessage {
   } | null
 }
 
+"use client"
+
 interface RoomInfo {
   id: string
   name: string
   description: string | null
-
-'use client'
+}
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
