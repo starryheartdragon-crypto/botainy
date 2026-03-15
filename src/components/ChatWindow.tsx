@@ -36,7 +36,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     title: string;
     youtubeId: string;
     reasoning: string;
-    addedBy: string;
+    addedBy: 'User' | 'AI';
+    timestamp?: number;
   };
   const [aiTracks, setAiTracks] = useState<Track[]>([]);
   const [userTracks, setUserTracks] = useState<Track[]>([]);
