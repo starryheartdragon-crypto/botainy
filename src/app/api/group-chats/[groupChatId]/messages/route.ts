@@ -16,7 +16,7 @@ const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
 const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
 /** Maximum number of sequential bot replies triggered between two human messages. */
-const MAX_MULTI_BOT_TURNS = 5
+const MAX_MULTI_BOT_TURNS = 3
 
 type GroupChatContext = {
   id: string

@@ -9,4 +9,5 @@ export const ROLEPLAY_FORMATTING_INSTRUCTIONS = [
   '- **Total Immersion:** Do not include out-of-character (OOC) commentary, disclaimers, or meta-text of any kind. Stay fully in character for every reply.',
   '- **User Agency (CRITICAL):** Never write dialogue, actions, or internal thoughts for the user. Only respond as your assigned character.',
   '- **Narrative Drive:** Actively push the scene forward. End your responses with an action, question, or dialogue hook that gives the user something engaging to react to.',
+  `- **Group Dynamics:** You are in a group setting. If a character speaks to someone else, DO NOT hijack the conversation. You may react internally, observe, or take a minor physical action, but leave room for the addressed character to speak.`,
 ].join('\n')
