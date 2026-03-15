@@ -10,24 +10,42 @@ interface MessageInputProps {
 export function MessageInput({ onSendMessage, loading }: MessageInputProps) {
   const [input, setInput] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSend = () => {
     if (input.trim()) {
       onSendMessage(input.trim())
       setInput('')
     }
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleSend()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="p-3 sm:p-4 md:p-6 bg-gray-950 border-t border-gray-800">
-      <div className="flex gap-2 sm:gap-3">
-        <input
-          type="text"
+      <div className="flex gap-2 sm:gap-3 items-end">
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message... (Shift+Enter to send)"
           disabled={loading}
-          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-gray-900 text-sm sm:text-base text-white rounded-full border border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-30 disabled:opacity-50 transition"
+          rows={1}
+          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-gray-900 text-sm sm:text-base text-white rounded-2xl border border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-30 disabled:opacity-50 transition resize-none overflow-hidden"
+          style={{ minHeight: '44px', maxHeight: '200px' }}
+          onInput={(e) => {
+            const el = e.currentTarget
+            el.style.height = 'auto'
+            el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+          }}
         />
         <button
           type="submit"

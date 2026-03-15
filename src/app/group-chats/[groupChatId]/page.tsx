@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { PersonaSelector } from '@/components/PersonaSelector'
 
 interface GroupMessage {
   id: string
@@ -32,6 +33,7 @@ export default function GroupChatDetailPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
 
   const getInitials = (name: string) => {
     const trimmed = name.trim()
@@ -102,6 +104,15 @@ export default function GroupChatDetailPage() {
 
       setUserId(session.user.id)
 
+      // Load the user's active persona for this group (stored from their last selection).
+      const memberResp = await fetch(`/api/group-chats/${groupChatId}/members/me`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (memberResp.ok) {
+        const memberData = await memberResp.json() as { persona_id?: string | null }
+        setSelectedPersonaId(memberData.persona_id ?? null)
+      }
+
       const groupResp = await fetch('/api/group-chats', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
@@ -169,7 +180,7 @@ export default function GroupChatDetailPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, personaId: selectedPersonaId }),
       })
 
       if (resp.ok) {
@@ -219,6 +230,12 @@ export default function GroupChatDetailPage() {
         <h1 className="text-lg sm:text-xl font-semibold">{group?.name || 'Group Chat'}</h1>
         <p className="text-xs sm:text-sm text-gray-400 mt-1">{group?.description || 'Private group conversation'}</p>
       </div>
+
+      {/* Persona selector — lets the user choose which persona the bots will address them as */}
+      <PersonaSelector
+        selectedPersonaId={selectedPersonaId}
+        onSelectPersona={setSelectedPersonaId}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
         {sortedMessages.map((message) => {

@@ -15,6 +15,9 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const authClient = () => createClient(supabaseUrl, supabaseAnonKey)
 const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 
+/** Maximum number of sequential bot replies triggered between two human messages. */
+const MAX_MULTI_BOT_TURNS = 5
+
 type GroupChatContext = {
   id: string
   name: string
@@ -52,6 +55,11 @@ type GroupMessageRow = {
 type GenerationMessage = {
   sender_id: string
   content: string
+}
+
+type UserPersona = {
+  name: string
+  description: string
 }
 
 type UserSender = {
@@ -295,16 +303,70 @@ function decorateMessagesWithSenderMeta(
   })
 }
 
+async function getActiveUserPersona(
+  svc: ReturnType<typeof serviceClient>,
+  groupChatId: string,
+  userId: string,
+  requestedPersonaId?: string | null
+): Promise<{ persona: UserPersona | null; warning: string | null }> {
+  let personaId: string | null = null
+
+  if (requestedPersonaId !== undefined) {
+    // User explicitly set (or cleared) their persona — persist the choice on the member record.
+    await svc
+      .from('group_chat_members')
+      .update({ persona_id: requestedPersonaId || null })
+      .eq('group_chat_id', groupChatId)
+      .eq('user_id', userId)
+    personaId = requestedPersonaId || null
+  } else {
+    // No explicit choice in this request — fall back to the stored persona for this member.
+    const { data } = await svc
+      .from('group_chat_members')
+      .select('persona_id')
+      .eq('group_chat_id', groupChatId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    personaId = (data as { persona_id?: string | null } | null)?.persona_id ?? null
+  }
+
+  if (!personaId) return { persona: null, warning: null }
+
+  const { data: personaRow, error: personaError } = await svc
+    .from('personas')
+    .select('name, description')
+    .eq('id', personaId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (personaError || !personaRow) {
+    return { persona: null, warning: 'Could not load user persona' }
+  }
+
+  const row = personaRow as { name?: unknown; description?: unknown }
+  return {
+    persona: {
+      name: String(row.name || ''),
+      description: String(row.description || ''),
+    },
+    warning: null,
+  }
+}
+
 async function generateBotReply({
   group,
   bot,
   recentMessages,
   latestTriggerMessage,
+  botsById,
+  userPersona,
 }: {
   group: GroupChatContext
   bot: GroupBot
   recentMessages: Array<{ sender_id: string; content: string }>
   latestTriggerMessage: string
+  botsById: Map<string, GroupBot>
+  userPersona: UserPersona | null
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
   if (!openrouterApiKey) {
@@ -316,10 +378,15 @@ async function generateBotReply({
 
   const model = resolveOpenRouterModel('openrouter/auto')
 
+  const personaLine = userPersona
+    ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
+    : null
+
   const systemPrompt = [
     `You are ${bot.name}.`,
     bot.personality,
     buildGroupModePrompt(group),
+    personaLine,
     ROLEPLAY_FORMATTING_INSTRUCTIONS,
     'Only produce your own in-character message. Do not narrate other participants.',
   ]
@@ -330,9 +397,17 @@ async function generateBotReply({
     const senderId = String(message.sender_id || '')
     const isCurrentBot = isMessageFromBotId(senderId, bot.id)
 
+    if (isCurrentBot) {
+      return { role: 'assistant' as const, content: message.content }
+    }
+
+    // Identify the sender so the bot understands who said what
+    const normalizedSenderId = senderId.startsWith('bot_') ? senderId.slice(4) : senderId
+    const senderBot = botsById.get(normalizedSenderId)
+    const senderLabel = senderBot ? senderBot.name : 'User'
     return {
-      role: isCurrentBot ? 'assistant' : 'user',
-      content: message.content,
+      role: 'user' as const,
+      content: `[${senderLabel}]: ${message.content}`,
     }
   })
 
@@ -591,7 +666,16 @@ export async function POST(
       return NextResponse.json({ error: 'Message content required' }, { status: 400 })
     }
 
+    // Resolve the active persona for the message sender.
+    // If the client sends a `personaId` field (including null to clear), persist and use that.
+    // Otherwise fall back to the persona stored on the member record from a previous message.
+    const hasPersonaId = Object.prototype.hasOwnProperty.call(body, 'personaId')
+    const requestedPersonaId = hasPersonaId
+      ? (typeof body.personaId === 'string' && body.personaId.trim() ? body.personaId.trim() : null)
+      : undefined
+
     const svc = serviceClient()
+    const { persona: userPersona } = await getActiveUserPersona(svc, groupChatId, user.id, requestedPersonaId)
     const { bots: groupBots } = await getGroupBots(svc, groupChatId)
     const { data, error } = await svc
       .from('group_chat_messages')
@@ -633,16 +717,18 @@ export async function POST(
           botWarning = botsWarning
         }
 
-        const maxBotTurns = bots.length > 1 ? 2 : 1
+        // Allow up to MAX_MULTI_BOT_TURNS bot-to-bot exchanges per user message when multiple bots are present.
+        const maxBotTurns = bots.length > 1 ? MAX_MULTI_BOT_TURNS : 1
         let triggerMessage = data as GroupMessageRow
-        const alreadyRespondedBotIds = new Set<string>()
+        const botsById = new Map(bots.map((bot) => [bot.id, bot]))
+        const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
 
         for (let turn = 0; turn < maxBotTurns; turn += 1) {
-          const botsById = new Map(bots.map((bot) => [bot.id, bot]))
-          const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
           const triggerBot = resolveBotFromMessage(triggerMessage, botsById, botsByName)
 
-          const excludedBotIds = new Set(alreadyRespondedBotIds)
+          // Only exclude the bot that sent the trigger message so it doesn't respond to itself.
+          // Other bots may respond again in later turns, enabling natural bot-to-bot conversation.
+          const excludedBotIds = new Set<string>()
           if (triggerBot) {
             excludedBotIds.add(triggerBot.id)
           }
@@ -672,6 +758,8 @@ export async function POST(
             bot: respondingBot,
             recentMessages: generationMessages,
             latestTriggerMessage: triggerMessage.content,
+            botsById,
+            userPersona,
           })
 
           if (botReply.warning) {
@@ -714,7 +802,6 @@ export async function POST(
           }
 
           botMessages.push(decorated)
-          alreadyRespondedBotIds.add(respondingBot.id)
           triggerMessage = botMessageRow
           generationMessages.push({
             sender_id: String(botMessageRow.sender_id || ''),
@@ -723,10 +810,6 @@ export async function POST(
 
           if (generationMessages.length > 20) {
             generationMessages.splice(0, generationMessages.length - 20)
-          }
-
-          if (bots.length <= 1) {
-            break
           }
         }
       }

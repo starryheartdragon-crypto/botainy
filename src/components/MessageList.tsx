@@ -143,7 +143,7 @@ export function MessageList({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs sm:text-sm break-words">{msg.content}</p>
+                      <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1 px-1 gap-2">
