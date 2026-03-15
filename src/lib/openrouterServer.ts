@@ -1,3 +1,24 @@
+import { sendChatMessage, AVAILABLE_MODELS } from './openrouter';
+
+export async function callOpenRouter({ prompt }: { prompt: string }) {
+  // Use GPT-4 Turbo as default model
+  const model = AVAILABLE_MODELS.includes('openai/gpt-4-turbo') ? 'openai/gpt-4-turbo' : AVAILABLE_MODELS[0];
+  const request = {
+    model,
+    messages: [
+      { role: 'system' as const, content: 'You are an AI assistant helping users roleplay and answer questions in chat.' },
+      { role: 'user' as const, content: prompt },
+    ],
+    temperature: 0.7,
+    max_tokens: 256,
+  };
+  try {
+    const response = await sendChatMessage(request);
+    return response.choices[0]?.message?.content || '';
+  } catch (err) {
+    return null;
+  }
+}
 export function resolveOpenRouterApiKey() {
   const key = process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY
   return key && key.trim().length > 0 ? key.trim() : null

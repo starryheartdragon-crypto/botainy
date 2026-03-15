@@ -25,9 +25,46 @@ interface ChatWindowProps {
 export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
   const [userUsername, setUserUsername] = useState<string | null>(null)
+  // AI Assist handler
+  const handleAiAssist = async () => {
+    setAiLoading(true)
+    setAiSuggestion(null)
+    try {
+      const headers = await getAuthHeaders(true)
+      // Prepare chat history as text
+      const chatHistory = messages.map(m => `${m.senderId === userId ? 'User' : 'Bot'}: ${m.content}`).join('\n');
+      // Fetch persona details (for now, just personaId)
+      let persona = null;
+      if (selectedPersonaId) {
+        // Fetch persona details from API
+        const resp = await fetch(`/api/personas`, { headers });
+        if (resp.ok) {
+          const data = await resp.json();
+          persona = (data.personas || []).find((p: any) => p.id === selectedPersonaId) || null;
+        }
+      }
+      const resp = await fetch(`/api/chats/ai-complete`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ chatHistory, persona }),
+      });
+      if (!resp.ok) {
+        setAiSuggestion('AI assist failed.');
+        return;
+      }
+      const data = await resp.json();
+      setAiSuggestion(data.suggestion || '');
+    } catch (err) {
+      setAiSuggestion('AI assist failed.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const normalizeMessage = useCallback((message: MessagePayload): ChatMessage => ({
     id: message.id,
@@ -298,6 +335,22 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-900 to-gray-950">
+      {/* AI Assist Button */}
+      <div className="px-3 py-2 flex justify-end">
+        <button
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow disabled:opacity-50"
+          onClick={handleAiAssist}
+          disabled={aiLoading || loading}
+        >
+          {aiLoading ? 'Requesting AI...' : 'AI Assist'}
+        </button>
+      </div>
+      {aiSuggestion && (
+        <div className="px-3 py-2 bg-gray-800 text-white rounded mb-2">
+          <strong>AI Suggestion:</strong>
+          <div className="mt-1 whitespace-pre-line">{aiSuggestion}</div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gradient-to-r from-gray-900 to-gray-950 border-b border-gray-800 px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">

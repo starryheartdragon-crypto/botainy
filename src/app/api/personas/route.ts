@@ -114,7 +114,9 @@ const personaContext = {
 
 const personaPrompt = personaContext
   ? `### **User Persona (${personaContext.name})**
-The user is roleplaying as the character described below. Treat any use of "I" or "my" in the following description as referring to ${personaContext.name}, not you. **CRITICAL GUARDRAIL:** You (the bot) do NOT automatically know the user's backstory, goals, or secrets. You only know their physical appearance and what they have explicitly revealed to you in dialogue.
+The user is roleplaying as the character described below. Treat any use of "I" or "my" as referring to ${personaContext.name}.
+
+**CRITICAL GUARDRAIL:** You (the bot) already know this character's physical appearance and any established relationship they have with you (e.g., family members, old friends, employees). However, you do NOT automatically know their hidden secrets, internal motives, or private backstory events unless they reveal them in dialogue.
 
 ${personaContext.description}`
   : 'The user is chatting as themselves.';
