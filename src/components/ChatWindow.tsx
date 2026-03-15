@@ -39,7 +39,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   };
   const [aiTracks, setAiTracks] = useState<Track[]>([]);
   const [userTracks, setUserTracks] = useState<Track[]>([]);
-  const [selectedTrack, setSelectedTrack] = useState(null);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
 
   // Fetch AI suggestions (stub, replace with API call later)
   const fetchAiTracks = async () => {
