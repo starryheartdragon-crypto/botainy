@@ -336,7 +336,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-900 to-gray-950">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-900 to-gray-950 relative">
       {/* Header */}
       <div className="bg-gradient-to-r from-gray-900 to-gray-950 border-b border-gray-800 px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
@@ -358,15 +358,51 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
             <p className="text-xs sm:text-sm text-gray-400">Character Bot</p>
           </div>
         </div>
-        {/* Magic Wand Icon */}
-        <button
-          onClick={handleOpenDrawer}
-          className="ml-4 p-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-md flex items-center"
-          title="Suggest Soundtrack"
-        >
-          <span role="img" aria-label="Magic Wand" className="text-2xl">🪄</span>
-        </button>
       </div>
+
+      {/* Persona Selector */}
+      <PersonaSelector
+        selectedPersonaId={selectedPersonaId}
+        onSelectPersona={setSelectedPersonaId}
+      />
+
+      {/* Messages */}
+      <MessageList 
+        messages={messages} 
+        userId={userId} 
+        bot={bot}
+        loading={loading}
+        userAvatarUrl={userAvatarUrl}
+        userUsername={userUsername}
+        onEditMessage={handleEditMessage}
+        onDeleteMessage={handleDeleteMessage}
+      />
+
+      {/* Input */}
+      <MessageInput onSendMessage={handleSendMessage} loading={loading} />
+
+      {/* Magic Wand Icon - Corner */}
+      <button
+        onClick={handleOpenDrawer}
+        className="fixed bottom-6 right-6 z-40 p-4 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg flex items-center text-3xl"
+        title="Suggest Soundtrack"
+        style={{ boxShadow: '0 4px 24px rgba(128,0,192,0.3)' }}
+      >
+        <span role="img" aria-label="Magic Wand">🪄</span>
+      </button>
+
+      {/* Soundtrack Drawer */}
+      <SoundtrackDrawer
+        aiTracks={aiTracks}
+        userTracks={userTracks}
+        onAddUserTrack={handleAddUserTrack}
+        onSelectTrack={handleSelectTrack}
+        selectedTrack={selectedTrack}
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+      />
+    </div>
+  )
 
       {/* Persona Selector */}
       <PersonaSelector
