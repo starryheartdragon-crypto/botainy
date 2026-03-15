@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export async function DELETE(req: NextRequest, { params }: { params: { roomId: string, botId: string } }) {
-  const { roomId, botId } = params
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ roomId: string, botId: string }> }) {
+  const { roomId, botId } = await params
   // Remove bot from room
   const { error } = await supabase
     .from('room_active_bots')

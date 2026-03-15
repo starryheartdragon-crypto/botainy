@@ -4,8 +4,8 @@ import { getSessionFromRequest } from '@/lib/supabase'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export async function GET(req: NextRequest, { params }: { params: { roomId: string } }) {
-  const { roomId } = params
+export async function GET(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = await params
   // Fetch active bots for this room
   const { data, error } = await supabase
     .from('room_active_bots')
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest, { params }: { params: { roomId: stri
   return NextResponse.json(bots)
 }
 
-export async function POST(req: NextRequest, { params }: { params: { roomId: string } }) {
-  const { roomId } = params
+export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = await params
   const { botId } = await req.json()
   // Add bot to room
   const { error } = await supabase
