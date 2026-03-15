@@ -1,5 +1,6 @@
-import AdminChatRoomEditor from "@/components/AdminChatRoomEditor";
+
 "use client";
+import AdminChatRoomEditor from "@/components/AdminChatRoomEditor";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -542,7 +543,7 @@ function ChatRoomsTab() {
           <AdminChatRoomEditor
             room={{
               ...editingRoom,
-              universe: (editingRoom as any).universe || '',
+              universe: (editingRoom as RoomRow).universe || '',
               description: editingRoom.description || '',
               background_url: editingRoom.background_url || '',
               city_info: editingRoom.city_info || '',
