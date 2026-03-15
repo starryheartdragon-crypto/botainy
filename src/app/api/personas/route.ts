@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -103,3 +104,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+// Define personaContext or remove personaPrompt if not used elsewhere
+// Example definition (replace with actual context as needed):
+const personaContext = {
+  name: 'Default Persona',
+  description: 'A generic persona description.'
+};
+
+const personaPrompt = personaContext
+  ? `### **User Persona (${personaContext.name})**
+The user is roleplaying as the character described below. Treat any use of "I" or "my" in the following description as referring to ${personaContext.name}, not you. **CRITICAL GUARDRAIL:** You (the bot) do NOT automatically know the user's backstory, goals, or secrets. You only know their physical appearance and what they have explicitly revealed to you in dialogue.
+
+${personaContext.description}`
+  : 'The user is chatting as themselves.';
+
+// Use personaPrompt in your request to OpenRouter or wherever the prompt is needed
