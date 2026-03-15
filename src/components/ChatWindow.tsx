@@ -392,17 +392,6 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       </button>
 
       {/* Soundtrack Drawer */}
-      <SoundtrackDrawer
-        aiTracks={aiTracks}
-        userTracks={userTracks}
-        onAddUserTrack={handleAddUserTrack}
-        onSelectTrack={handleSelectTrack}
-        selectedTrack={selectedTrack}
-        open={drawerOpen}
-        onClose={handleCloseDrawer}
-      />
-    </div>
-  )
 
       <SoundtrackDrawer
         aiTracks={aiTracks}
