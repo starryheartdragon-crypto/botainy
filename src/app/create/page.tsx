@@ -81,6 +81,7 @@ export default function CreateBotPage() {
 
   const [personaName, setPersonaName] = useState("")
   const [personaDescription, setPersonaDescription] = useState("")
+  const [personaAppearance, setPersonaAppearance] = useState("")
   const [personaBackstory, setPersonaBackstory] = useState("")
   const [personaGoals, setPersonaGoals] = useState("")
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
@@ -603,6 +604,7 @@ export default function CreateBotPage() {
 
     const descriptionSections = [
       personaDescription.trim(),
+      personaAppearance.trim() ? `Appearance: ${personaAppearance.trim()}` : null,
       personaBackstory.trim() ? `Backstory: ${personaBackstory.trim()}` : null,
       personaGoals.trim() ? `Goals & Intentions: ${personaGoals.trim()}` : null,
     ].filter(Boolean)
@@ -633,6 +635,7 @@ export default function CreateBotPage() {
       toast.success("Persona created and added to your chat personas")
       setPersonaName("")
       setPersonaDescription("")
+      setPersonaAppearance("")
       setPersonaBackstory("")
       setPersonaGoals("")
       setPersonaAvatarUrl(null)
@@ -1703,6 +1706,17 @@ export default function CreateBotPage() {
                   className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
                   rows={3}
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-1.5">Appearance</label>
+                <textarea
+                  value={personaAppearance}
+                  onChange={(e) => setPersonaAppearance(e.target.value)}
+                  placeholder="Physical description: hair, eyes, build, clothing style, distinguishing features..."
+                  className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                  rows={3}
                 />
               </div>
 
