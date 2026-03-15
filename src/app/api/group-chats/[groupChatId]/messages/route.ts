@@ -300,11 +300,13 @@ async function generateBotReply({
   bot,
   recentMessages,
   latestTriggerMessage,
+  botsById,
 }: {
   group: GroupChatContext
   bot: GroupBot
   recentMessages: Array<{ sender_id: string; content: string }>
   latestTriggerMessage: string
+  botsById: Map<string, GroupBot>
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
   if (!openrouterApiKey) {
@@ -330,9 +332,17 @@ async function generateBotReply({
     const senderId = String(message.sender_id || '')
     const isCurrentBot = isMessageFromBotId(senderId, bot.id)
 
+    if (isCurrentBot) {
+      return { role: 'assistant' as const, content: message.content }
+    }
+
+    // Identify the sender so the bot understands who said what
+    const normalizedSenderId = senderId.startsWith('bot_') ? senderId.slice(4) : senderId
+    const senderBot = botsById.get(normalizedSenderId)
+    const senderLabel = senderBot ? senderBot.name : 'User'
     return {
-      role: isCurrentBot ? 'assistant' : 'user',
-      content: message.content,
+      role: 'user' as const,
+      content: `[${senderLabel}]: ${message.content}`,
     }
   })
 
@@ -633,16 +643,18 @@ export async function POST(
           botWarning = botsWarning
         }
 
-        const maxBotTurns = bots.length > 1 ? 2 : 1
+        // Allow up to 5 bot-to-bot exchanges per user message when multiple bots are present.
+        const maxBotTurns = bots.length > 1 ? 5 : 1
         let triggerMessage = data as GroupMessageRow
-        const alreadyRespondedBotIds = new Set<string>()
+        const botsById = new Map(bots.map((bot) => [bot.id, bot]))
+        const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
 
         for (let turn = 0; turn < maxBotTurns; turn += 1) {
-          const botsById = new Map(bots.map((bot) => [bot.id, bot]))
-          const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
           const triggerBot = resolveBotFromMessage(triggerMessage, botsById, botsByName)
 
-          const excludedBotIds = new Set(alreadyRespondedBotIds)
+          // Only exclude the bot that sent the trigger message so it doesn't respond to itself.
+          // Other bots may respond again in later turns, enabling natural bot-to-bot conversation.
+          const excludedBotIds = new Set<string>()
           if (triggerBot) {
             excludedBotIds.add(triggerBot.id)
           }
@@ -672,6 +684,7 @@ export async function POST(
             bot: respondingBot,
             recentMessages: generationMessages,
             latestTriggerMessage: triggerMessage.content,
+            botsById,
           })
 
           if (botReply.warning) {
@@ -714,7 +727,6 @@ export async function POST(
           }
 
           botMessages.push(decorated)
-          alreadyRespondedBotIds.add(respondingBot.id)
           triggerMessage = botMessageRow
           generationMessages.push({
             sender_id: String(botMessageRow.sender_id || ''),
@@ -723,10 +735,6 @@ export async function POST(
 
           if (generationMessages.length > 20) {
             generationMessages.splice(0, generationMessages.length - 20)
-          }
-
-          if (bots.length <= 1) {
-            break
           }
         }
       }
