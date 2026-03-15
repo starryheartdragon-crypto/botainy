@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { ChatMessage as ChatMessageType } from '@/types'
 import { useEffect, useRef, useState } from 'react'
 import { Bot } from '@/types'
+import { formatMessageContent } from '@/lib/formatMessage'
 
 interface MessageListProps {
   messages: ChatMessageType[]
@@ -143,7 +144,10 @@ export function MessageList({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs sm:text-sm break-words">{msg.content}</p>
+                      <p
+                        className="text-xs sm:text-sm break-words"
+                        dangerouslySetInnerHTML={{ __html: formatMessageContent(msg.content) }}
+                      />
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1 px-1 gap-2">
