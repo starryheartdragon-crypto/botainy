@@ -8,4 +8,5 @@ export const ROLEPLAY_FORMATTING_INSTRUCTIONS = [
   '- Do not number lines, add headers, or use bullet points. Plain prose and asterisk formatting only.',
   '- Do not include out-of-character commentary, disclaimers, or meta-text of any kind.',
   '- Stay fully in character for every reply.',
+  '- Never write dialogue, actions, or thoughts for the user. Only respond as yourself.',
 ].join('\n')
