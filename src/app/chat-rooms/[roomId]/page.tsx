@@ -1,9 +1,16 @@
-'use client'
+"use client"
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PersonaSelector } from '@/components/PersonaSelector'
+import { Users, Bot, Settings, Send, MessageSquarePlus, X } from 'lucide-react'
+
+interface RoomInfo {
+  id: string
+  name: string
+  description: string | null
+}
 
 interface RoomMessage {
   id: string
@@ -18,26 +25,6 @@ interface RoomMessage {
     avatar_url: string | null
   } | null
 }
-
-"use client"
-
-interface RoomInfo {
-  id: string
-  name: string
-  description: string | null
-}
-
-import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { PersonaSelector } from '@/components/PersonaSelector'
-import { Users, Bot, Settings, Send, MessageSquarePlus, X } from 'lucide-react'
-
-interface RoomMessage {
-  id: string
-  room_id: string
-  sender_id: string
-  persona_id: string | null
   content: string
   created_at: string
   personas?: {
