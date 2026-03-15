@@ -1,3 +1,61 @@
+export async function PATCH(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient().auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: userRow, error: userError } = await serviceClient()
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (userError) {
+      return NextResponse.json({ error: userError.message }, { status: 500 })
+    }
+    if (!userRow?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const roomId = String(body?.id || '').trim()
+    if (!roomId) {
+      return NextResponse.json({ error: 'Room id is required' }, { status: 400 })
+    }
+
+    // Build update object
+    const updateFields: any = {}
+    if (body.name !== undefined) updateFields.name = String(body.name).trim()
+    if (body.description !== undefined) updateFields.description = String(body.description).trim()
+    if (body.background_url !== undefined) updateFields.background_url = String(body.background_url).trim()
+    if (body.city_info !== undefined) updateFields.city_info = String(body.city_info).trim()
+    if (body.notable_bots !== undefined) updateFields.notable_bots = String(body.notable_bots).trim()
+    if (body.universe !== undefined) updateFields.universe = String(body.universe).trim()
+
+    const { data, error } = await serviceClient()
+      .from('chat_rooms')
+      .update(updateFields)
+      .eq('id', roomId)
+      .select('id, name, description, background_url, city_info, notable_bots, universe, created_at')
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json(data, { status: 200 })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
+  }
+}
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
