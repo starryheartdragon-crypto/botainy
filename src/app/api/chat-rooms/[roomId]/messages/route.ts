@@ -1,3 +1,70 @@
+// POST /api/chat-rooms/[roomId]/messages/bot-reply
+export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
+  try {
+    const user = await getAuthUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { roomId: rawRoomId } = await params
+    const roomId = normalizeRoomId(rawRoomId)
+    if (!roomId) return NextResponse.json({ error: 'Invalid room id' }, { status: 400 })
+    const member = await ensureMember(roomId, user.id)
+    if (!member) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    // Get recent messages for context
+    const { data: recentMessages } = await serviceClient()
+      .from('chat_room_messages')
+      .select('sender_id, content')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true })
+      .limit(20)
+
+    // Build message history for OpenRouter
+    const messageHistory = (recentMessages || []).map((msg) => ({
+      role: msg.sender_id === user.id ? 'user' : 'assistant',
+      content: msg.content,
+    }))
+
+    // System prompt for bot
+    const systemPrompt = 'You are a bot in a chat room. Respond in character and avoid repeating actions.'
+
+    // OpenRouter API call
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY
+    const openrouterModel = 'openrouter/auto'
+    if (!openrouterApiKey) {
+      return NextResponse.json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 })
+    }
+
+    const openrouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${openrouterApiKey}`,
+        'HTTP-Referer': 'https://botainy.com',
+        'X-Title': 'Botainy',
+      },
+      body: JSON.stringify({
+        model: openrouterModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messageHistory,
+        ],
+        temperature: 0.85,
+        frequency_penalty: 0.4,
+        presence_penalty: 0.4,
+      }),
+    })
+
+    const openrouterData = await openrouterResp.json().catch(() => null)
+    if (!openrouterResp.ok) {
+      return NextResponse.json({ error: 'OpenRouter error', details: openrouterData }, { status: 500 })
+    }
+
+    const botReply = openrouterData?.choices?.[0]?.message?.content || 'Bot reply unavailable.'
+    return NextResponse.json({ botReply })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
+  }
+}
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
