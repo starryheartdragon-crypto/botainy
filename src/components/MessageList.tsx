@@ -4,15 +4,42 @@ import Image from 'next/image'
 import { ChatMessage as ChatMessageType } from '@/types'
 import { useEffect, useRef, useState } from 'react'
 import { Bot } from '@/types'
-import { formatMessageContent } from '@/lib/formatMessage'
 
 interface MessageListProps {
   messages: ChatMessageType[]
   userId: string
   bot: Bot
   loading?: boolean
+  userAvatarUrl?: string | null
+  userUsername?: string | null
   onEditMessage?: (messageId: string, content: string) => Promise<void>
   onDeleteMessage?: (messageId: string) => Promise<void>
+}
+
+function FormattedText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = []
+  const pattern = /(\*\*([\s\S]+?)\*\*|\*([\s\S]+?)\*)/g
+  let lastIndex = 0
+  let key = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    if (match[2] !== undefined) {
+      parts.push(<strong key={key++}>{match[2]}</strong>)
+    } else {
+      parts.push(<em key={key++}>{match[3]}</em>)
+    }
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return <>{parts.length > 0 ? parts : text}</>
 }
 
 export function MessageList({ 
@@ -20,6 +47,8 @@ export function MessageList({
   userId, 
   bot,
   loading,
+  userAvatarUrl,
+  userUsername,
   onEditMessage,
   onDeleteMessage,
 }: MessageListProps) {
@@ -144,10 +173,9 @@ export function MessageList({
                         </div>
                       </div>
                     ) : (
-                      <p
-                        className="text-xs sm:text-sm break-words"
-                        dangerouslySetInnerHTML={{ __html: formatMessageContent(msg.content) }}
-                      />
+                      <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">
+                        <FormattedText text={msg.content} />
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1 px-1 gap-2">
@@ -178,9 +206,19 @@ export function MessageList({
                   </div>
                 </div>
                 {isUser && (
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
-                    U
-                  </div>
+                  userAvatarUrl ? (
+                    <Image
+                      src={userAvatarUrl}
+                      alt={userUsername ?? 'You'}
+                      width={32}
+                      height={32}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-gray-700 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
+                      {userUsername?.[0]?.toUpperCase() ?? '?'}
+                    </div>
+                  )
                 )}
               </div>
             )

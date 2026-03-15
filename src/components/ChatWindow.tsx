@@ -26,6 +26,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
+  const [userUsername, setUserUsername] = useState<string | null>(null)
 
   const normalizeMessage = useCallback((message: MessagePayload): ChatMessage => ({
     id: message.id,
@@ -156,6 +158,26 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       unsubscribe()
     }
   }, [loadMessages, subscribeToMessages])
+
+  // Load user profile for avatar display
+  useEffect(() => {
+    let mounted = true
+    const fetchUserProfile = async () => {
+      try {
+        const headers = await getAuthHeaders()
+        const resp = await fetch('/api/profile', { headers })
+        if (resp.ok && mounted) {
+          const data = await resp.json() as { username?: string | null; avatar_url?: string | null }
+          setUserAvatarUrl(data.avatar_url ?? null)
+          setUserUsername(data.username ?? null)
+        }
+      } catch {
+        // non-critical, leave defaults
+      }
+    }
+    void fetchUserProfile()
+    return () => { mounted = false }
+  }, [userId])
 
   const handleEditMessage = async (messageId: string, content: string) => {
     try {
@@ -311,6 +333,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         userId={userId} 
         bot={bot}
         loading={loading}
+        userAvatarUrl={userAvatarUrl}
+        userUsername={userUsername}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
       />
