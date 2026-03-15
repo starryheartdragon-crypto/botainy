@@ -159,13 +159,15 @@ function buildGroupModePrompt(group: GroupChatContext) {
 
   if (group.group_type === 'roleplay') {
     return [
-      'This is a roleplay group chat.',
+      'This is a roleplay group chat. MULTIPLE characters are present.',
       group.universe ? `Universe: ${group.universe}` : null,
       group.rules ? `Roleplay rules: ${group.rules}` : null,
       group.persona_relationship_context
         ? `Relationship map to user persona: ${group.persona_relationship_context}`
         : null,
-      'Stay in-character and respond naturally to the latest turn.',
+      '### **GROUP DYNAMICS (CRITICAL)**',
+      '- Stay in-character and respond naturally to the latest turn.',
+      '- If a character is explicitly speaking to someone else, do not hijack the conversation. You may react physically or observe, but do not interrupt their dialogue.',
     ]
       .filter(Boolean)
       .join('\n')
@@ -426,6 +428,9 @@ async function generateBotReply({
           { role: 'system', content: systemPrompt },
           ...messageHistory,
         ],
+        temperature: 0.85,
+        frequency_penalty: 0.4,
+        presence_penalty: 0.4,
       }),
     })
 
