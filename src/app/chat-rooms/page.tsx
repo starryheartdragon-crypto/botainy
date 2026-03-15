@@ -321,7 +321,8 @@ export default function ChatRoomsPage() {
             {sortedRooms.map((room) => (
               <div
                 key={room.id}
-                className="relative overflow-hidden rounded-xl border border-gray-700 bg-gray-900/80"
+                className="relative overflow-hidden rounded-xl border border-gray-700 bg-gray-900/80 transition-all duration-200 group hover:z-20 hover:shadow-2xl hover:scale-[1.03]"
+                style={{ cursor: 'pointer' }}
               >
                 {room.background_url && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -333,12 +334,12 @@ export default function ChatRoomsPage() {
                 )}
                 <div className="relative z-10 p-4 sm:p-5">
                   <h2 className="text-lg sm:text-xl font-semibold">{room.name}</h2>
-                  <p className="text-sm text-gray-300 mt-1 line-clamp-2">
+                  <p className="text-sm text-gray-300 mt-1 line-clamp-2 group-hover:line-clamp-none group-hover:whitespace-normal">
                     {room.description || 'No description provided.'}
                   </p>
 
                   {room.city_info && (
-                    <p className="text-xs text-purple-300 mt-3 line-clamp-2">
+                    <p className="text-xs text-purple-300 mt-3 line-clamp-2 group-hover:line-clamp-none group-hover:whitespace-normal">
                       {room.city_info}
                     </p>
                   )}
