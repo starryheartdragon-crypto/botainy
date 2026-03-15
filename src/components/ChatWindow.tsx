@@ -31,8 +31,14 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
   // SoundtrackDrawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [aiTracks, setAiTracks] = useState([]);
-  const [userTracks, setUserTracks] = useState([]);
+  type Track = {
+    title: string;
+    youtubeId: string;
+    reasoning: string;
+    addedBy: string;
+  };
+  const [aiTracks, setAiTracks] = useState<Track[]>([]);
+  const [userTracks, setUserTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState(null);
 
   // Fetch AI suggestions (stub, replace with API call later)
