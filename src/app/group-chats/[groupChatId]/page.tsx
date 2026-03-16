@@ -240,14 +240,20 @@ export default function GroupChatDetailPage() {
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
         {sortedMessages.map((message) => {
           const mine = message.sender_id === userId
-          const showAvatar = !mine
+          const showAvatar = true
           const senderLabel = message.sender_name || (message.sender_is_bot ? 'Bot' : 'User')
           return (
             <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex items-end gap-2 max-w-[90%] sm:max-w-lg ${mine ? 'flex-row-reverse' : ''}`}>
                 {showAvatar ? (
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 border border-gray-600 shrink-0">
-                    {message.sender_avatar_url ? (
+                    {mine && selectedPersonaId && message.sender_avatar_url ? (
+                      <img
+                        src={message.sender_avatar_url}
+                        alt={senderLabel}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (!mine && message.sender_avatar_url ? (
                       <img
                         src={message.sender_avatar_url}
                         alt={senderLabel}
@@ -257,7 +263,7 @@ export default function GroupChatDetailPage() {
                       <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-200 font-semibold">
                         {getInitials(senderLabel)}
                       </div>
-                    )}
+                    ))}
                   </div>
                 ) : null}
 

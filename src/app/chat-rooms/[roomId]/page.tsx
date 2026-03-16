@@ -37,6 +37,7 @@ interface RoomInfo {
 }
 
 interface RoomMember {
+  is_active: unknown
   user_id: string
   joined_at: string
   username: string | null
@@ -285,7 +286,7 @@ export default function ChatRoomDetailPage() {
   }
 
   // Bots for modal
-  const [universeBots, setUniverseBots] = useState<any[]>([])
+  const [universeBots, setUniverseBots] = useState<RoomBot[]>([])
   const [botsLoading, setBotsLoading] = useState(false)
 
   useEffect(() => {
@@ -464,10 +465,10 @@ export default function ChatRoomDetailPage() {
 
         <div className="p-5 flex-1">
           <h2 className="text-sm font-bold tracking-wider text-gray-400 uppercase mb-4 flex items-center gap-2">
-            <Users size={16} /> Active Cast ({members.length})
+            <Users size={16} /> Active Cast ({members.filter(m => m.is_active).length})
           </h2>
           <div className="space-y-3">
-            {members.map((member) => (
+            {members.filter(m => m.is_active).map((member) => (
               <div key={member.user_id} className="flex items-center gap-3 p-1">
                 <div className="relative">
                   <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">

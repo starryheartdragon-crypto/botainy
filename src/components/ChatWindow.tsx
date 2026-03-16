@@ -27,8 +27,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
-  const [userUsername, setUserUsername] = useState<string | null>(null)
+  const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
+  const [personaName, setPersonaName] = useState<string | null>(null)
 
   // SoundtrackDrawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -206,25 +206,30 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     }
   }, [loadMessages, subscribeToMessages])
 
-  // Load user profile for avatar display
+  // Load persona profile for avatar display
   useEffect(() => {
     let mounted = true
-    const fetchUserProfile = async () => {
+    const fetchPersonaProfile = async () => {
+      if (!selectedPersonaId) {
+        setPersonaAvatarUrl(null)
+        setPersonaName(null)
+        return
+      }
       try {
         const headers = await getAuthHeaders()
-        const resp = await fetch('/api/profile', { headers })
+        const resp = await fetch(`/api/personas/${selectedPersonaId}`, { headers })
         if (resp.ok && mounted) {
-          const data = await resp.json() as { username?: string | null; avatar_url?: string | null }
-          setUserAvatarUrl(data.avatar_url ?? null)
-          setUserUsername(data.username ?? null)
+          const data = await resp.json() as { name?: string | null; avatarUrl?: string | null }
+          setPersonaAvatarUrl(data.avatarUrl ?? null)
+          setPersonaName(data.name ?? null)
         }
       } catch {
         // non-critical, leave defaults
       }
     }
-    void fetchUserProfile()
+    void fetchPersonaProfile()
     return () => { mounted = false }
-  }, [userId])
+  }, [selectedPersonaId])
 
   const handleEditMessage = async (messageId: string, content: string) => {
     try {
@@ -380,8 +385,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         userId={userId} 
         bot={bot}
         loading={loading}
-        userAvatarUrl={userAvatarUrl}
-        userUsername={userUsername}
+        userAvatarUrl={personaAvatarUrl}
+        userUsername={personaName}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
       />
@@ -389,10 +394,10 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       {/* Input */}
       <MessageInput onSendMessage={handleSendMessage} loading={loading} />
 
-      {/* Magic Wand Icon - Corner */}
+      {/* Magic Wand Icon - Top Right, under NotificationBell */}
       <button
         onClick={handleOpenDrawer}
-        className="fixed bottom-6 right-6 z-40 p-4 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg flex items-center text-3xl"
+        className="fixed top-20 right-8 z-40 p-4 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg flex items-center text-3xl"
         title="Suggest Soundtrack"
         style={{ boxShadow: '0 4px 24px rgba(128,0,192,0.3)' }}
       >

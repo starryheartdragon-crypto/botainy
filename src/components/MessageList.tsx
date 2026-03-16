@@ -125,7 +125,21 @@ export function MessageList({
 
             return (
               <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2 sm:gap-3 group`}>
-                {!isUser && (
+                {isUser ? (
+                  userAvatarUrl ? (
+                    <Image
+                      src={userAvatarUrl}
+                      alt={userUsername || 'Persona'}
+                      width={32}
+                      height={32}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-gray-700 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
+                      {userUsername?.[0] || 'P'}
+                    </div>
+                  )
+                ) : (
                   bot.avatarUrl ? (
                     <Image
                       src={bot.avatarUrl}
