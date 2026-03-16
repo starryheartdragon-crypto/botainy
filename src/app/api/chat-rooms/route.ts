@@ -70,7 +70,7 @@ export async function GET() {
   try {
     const { data, error } = await serviceClient()
       .from('chat_rooms')
-      .select('id, name, description, background_url, city_info, notable_bots, created_at')
+      .select('id, name, description, background_url, city_info, notable_bots, universe, created_at')
       .order('created_at', { ascending: false })
 
     if (error) {
