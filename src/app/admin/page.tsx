@@ -44,6 +44,7 @@ type RoomRow = {
   city_info: string | null;
   notable_bots: string | null;
   universe: string | null;
+  era: string | null;
   created_at: string;
 };
 
@@ -438,6 +439,7 @@ function ChatRoomsTab() {
   const [cityInfo, setCityInfo] = useState("");
   const [notableBots, setNotableBots] = useState("");
   const [universe, setUniverse] = useState("");
+  const [era, setEra] = useState("");
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -446,12 +448,11 @@ function ChatRoomsTab() {
   }, []);
   async function handleUploadBg(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-  const [universe, setUniverse] = useState<string>("");
-      if (!files || files.length === 0) {
-        setBgFile(null);
-        return;
-      }
-      setBgFile(files[0]);
+    if (!files || files.length === 0) {
+      setBgFile(null);
+      return;
+    }
+    setBgFile(files[0]);
   }
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -506,6 +507,7 @@ function ChatRoomsTab() {
           city_info: cityInfo,
           notable_bots: notableBots,
           universe,
+          era,
         }),
       });
 
@@ -515,7 +517,7 @@ function ChatRoomsTab() {
         return;
       }
          // removed stray universe: universe,
-      setName(""); setDesc(""); setBgUrl(""); setCityInfo(""); setNotableBots(""); setBgFile(null);
+      setName(""); setDesc(""); setBgUrl(""); setCityInfo(""); setNotableBots(""); setBgFile(null); setEra("");
       const { data } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
       setRooms(data || []);
     } finally {
@@ -551,7 +553,7 @@ function ChatRoomsTab() {
         <input type="file" accept="image/*" onChange={handleUploadBg} className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <textarea value={cityInfo} onChange={e => setCityInfo(e.target.value)} placeholder="City info / lore" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" rows={2} />
         <input value={notableBots} onChange={e => setNotableBots(e.target.value)} placeholder="Notable bots (comma-separated)" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
-        <input value={universe} onChange={e => setUniverse(e.target.value)} placeholder="Universe" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
+        <input value={era} onChange={e => setEra(e.target.value)} placeholder="Era / Time Period" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded col-span-1 md:col-span-2">{loading ? "Creating..." : "Create"}</button>
       </form>
       {editingRoom && editToken && (

@@ -33,7 +33,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Build update object
-    const updateFields: any = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updateFields: Record<string, any> = {}
     if (body.name !== undefined) updateFields.name = String(body.name).trim()
     if (body.description !== undefined) updateFields.description = String(body.description).trim()
     if (body.background_url !== undefined) updateFields.background_url = String(body.background_url).trim()
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
     const cityInfo = String(body?.city_info || '').trim()
     const notableBots = String(body?.notable_bots || '').trim()
     const universe = String(body?.universe || '').trim()
+    const era = String(body?.era || '').trim()
 
     if (!name) {
       return NextResponse.json({ error: 'Room name is required' }, { status: 400 })
@@ -136,8 +138,9 @@ export async function POST(req: NextRequest) {
         city_info: cityInfo || null,
         notable_bots: notableBots || null,
         universe: universe || null,
+        era: era || null,
       })
-      .select('id, name, description, background_url, city_info, notable_bots, universe, created_at')
+      .select('id, name, description, background_url, city_info, notable_bots, universe, era, created_at')
       .single()
 
     if (error) {
