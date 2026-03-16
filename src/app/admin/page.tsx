@@ -445,7 +445,11 @@ function ChatRoomsTab() {
   async function handleUploadBg(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
   const [universe, setUniverse] = useState<string>("");
-    setBgFile(files[0]);
+      if (!files || files.length === 0) {
+        setBgFile(null);
+        return;
+      }
+      setBgFile(files[0]);
   }
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
