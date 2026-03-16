@@ -11,6 +11,7 @@ interface RoomInfo {
   id: string
   name: string
   description: string | null
+  universe: string | null
 }
 
 interface Persona {
@@ -266,12 +267,15 @@ export default function ChatRoomDetailPage() {
     }
   }
 
-  // Mock function for adding a bot
-  const handleAddBot = async (botId: string) => {
+  // Add bot to room
+  const handleAddBot = async (botId: string, botName: string, botAvatar: string | null) => {
     if (activeBots.length >= 5) return alert("Maximum of 5 bots allowed per room.")
-    // await fetch(`/api/chat-rooms/${roomId}/bots`, { method: 'POST', body: JSON.stringify({ botId }) })
-    // Update local state temporarily for preview
-    setActiveBots(prev => [...prev, { id: botId, name: 'New Universe Bot', avatar_url: null }])
+    await fetch(`/api/chat-rooms/${roomId}/bots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId })
+    })
+    setActiveBots(prev => [...prev, { id: botId, name: botName, avatar_url: botAvatar }])
     setShowBotModal(false)
   }
 
@@ -279,6 +283,20 @@ export default function ChatRoomDetailPage() {
     // await fetch(`/api/chat-rooms/${roomId}/bots/${botId}`, { method: 'DELETE' })
     setActiveBots(prev => prev.filter(b => b.id !== botId))
   }
+
+  // Bots for modal
+  const [universeBots, setUniverseBots] = useState<any[]>([])
+  const [botsLoading, setBotsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!room?.universe) return
+    setBotsLoading(true)
+    fetch(`/api/bots?universe=${encodeURIComponent(room.universe)}`)
+      .then(res => res.ok ? res.json() : Promise.reject(res))
+      .then(data => setUniverseBots(data.bots || []))
+      .catch(() => setUniverseBots([]))
+      .finally(() => setBotsLoading(false))
+  }, [room?.universe])
 
   if (loading) {
     return (
@@ -476,18 +494,27 @@ export default function ChatRoomDetailPage() {
             </div>
             <p className="text-sm text-gray-400 mb-4">Select a character from this universe&apos;s roster to integrate into the narrative. (Limit 5 per room)</p>
             
-            {/* Mock List of available bots */}
+            {/* Real List of available bots from universe */}
             <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-              {['Aria (Sci-Fi)', 'Grog (Fantasy)', 'The Detective (Noir)'].map((mockBot, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => handleAddBot(`mock-id-${idx}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-900/50 hover:bg-indigo-600/20 border border-transparent hover:border-indigo-500/50 transition-all text-left"
-                >
-                  <Bot size={20} className="text-indigo-400" />
-                  <span className="text-gray-200 font-medium">{mockBot}</span>
-                </button>
-              ))}
+              {botsLoading ? (
+                <div className="text-gray-400 text-center py-4">Loading bots...</div>
+              ) : universeBots.length === 0 ? (
+                <div className="text-gray-400 text-center py-4">No bots found for this universe.</div>
+              ) : (
+                universeBots.map((bot) => (
+                  <button
+                    key={bot.id}
+                    onClick={() => handleAddBot(bot.id, bot.name, bot.avatar_url)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-900/50 hover:bg-indigo-600/20 border border-transparent hover:border-indigo-500/50 transition-all text-left"
+                  >
+                    <Bot size={20} className="text-indigo-400" />
+                    {bot.avatar_url ? (
+                      <img src={bot.avatar_url} alt={bot.name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : null}
+                    <span className="text-gray-200 font-medium">{bot.name}</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
