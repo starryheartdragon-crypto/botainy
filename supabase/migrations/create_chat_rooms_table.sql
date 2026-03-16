@@ -21,7 +21,27 @@ CREATE POLICY "Anyone can view chat rooms"
   USING (true);
 
 CREATE POLICY "Admins can manage chat rooms"
-  ON chat_rooms FOR ALL
+  ON chat_rooms FOR INSERT
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND u.is_admin = TRUE
+    )
+  );
+
+CREATE POLICY "Admins can update chat rooms"
+  ON chat_rooms FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND u.is_admin = TRUE
+    )
+  );
+
+CREATE POLICY "Admins can delete chat rooms"
+  ON chat_rooms FOR DELETE
   USING (
     EXISTS (
       SELECT 1 FROM users u
