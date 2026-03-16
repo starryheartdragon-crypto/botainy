@@ -512,7 +512,7 @@ function ChatRoomsTab() {
         alert(createPayload?.error || 'Failed to create chat room');
         return;
       }
-         universe: universe,
+         // removed stray universe: universe,
       setName(""); setDesc(""); setBgUrl(""); setCityInfo(""); setNotableBots(""); setBgFile(null);
       const { data } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
       setRooms(data || []);
