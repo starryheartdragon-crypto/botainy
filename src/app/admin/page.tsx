@@ -2,6 +2,8 @@
 "use client";
 import AdminChatRoomEditor from "@/components/AdminChatRoomEditor";
 
+import { BOT_UNIVERSES } from "@/lib/botUniverses";
+
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
