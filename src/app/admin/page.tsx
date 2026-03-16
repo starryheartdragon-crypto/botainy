@@ -444,7 +444,7 @@ function ChatRoomsTab() {
   }, []);
   async function handleUploadBg(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const [universe, setUniverse] = useState<string>("");
     setBgFile(files[0]);
   }
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -508,7 +508,7 @@ function ChatRoomsTab() {
         alert(createPayload?.error || 'Failed to create chat room');
         return;
       }
-
+         universe: universe,
       setName(""); setDesc(""); setBgUrl(""); setCityInfo(""); setNotableBots(""); setBgFile(null);
       const { data } = await supabase.from("chat_rooms").select("*").order("created_at", { ascending: false });
       setRooms(data || []);
@@ -536,6 +536,12 @@ function ChatRoomsTab() {
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Room name" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Short description" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <input value={bgUrl} onChange={e => setBgUrl(e.target.value)} placeholder="Background image URL (optional)" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
+        <select value={universe} onChange={e => setUniverse(e.target.value)} className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white">
+          <option value="">Select universe</option>
+          {BOT_UNIVERSES.map(u => (
+            <option key={u} value={u}>{u}</option>
+          ))}
+        </select>
         <input type="file" accept="image/*" onChange={handleUploadBg} className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
         <textarea value={cityInfo} onChange={e => setCityInfo(e.target.value)} placeholder="City info / lore" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" rows={2} />
         <input value={notableBots} onChange={e => setNotableBots(e.target.value)} placeholder="Notable bots (comma-separated)" className="px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white" />
