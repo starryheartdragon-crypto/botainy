@@ -226,8 +226,6 @@ export async function POST(
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
-      `### **Current Scene Participants**`,
-      `The following characters are currently present in this group chat: Lyarra Baratheon (User), Ser Dunk the Tall, Lyonel Baratheon, and Aerion Targaryen.`,
       `### **CRITICAL ROLEPLAY RULES**`,
       `- ALWAYS stay in character as ${botInfo.name}.`,
       `- NEVER write dialogue, actions, or thoughts for ${personaContext?.name || 'the user'}.`,

@@ -384,11 +384,25 @@ async function generateBotReply({
     ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
     : null
 
+  const isRoleplayMode = group.group_type === 'roleplay' || group.group_type === 'ttrpg'
+
+  const targetUserLabel = userPersona ? userPersona.name : 'the user'
+
+  const criticalRoleplayRules = isRoleplayMode
+    ? [
+        `### **CRITICAL ROLEPLAY RULES**`,
+        `- ALWAYS stay in character as ${bot.name}.`,
+        `- NEVER write dialogue, actions, or thoughts for ${targetUserLabel}.`,
+        `- Drive the narrative forward but leave room for the user to respond.`,
+      ].join('\n')
+    : null
+
   const systemPrompt = [
     `You are ${bot.name}.`,
     bot.personality,
     buildGroupModePrompt(group),
     personaLine,
+    criticalRoleplayRules,
     ROLEPLAY_FORMATTING_INSTRUCTIONS,
     'Only produce your own in-character message. Do not narrate other participants.',
   ]
