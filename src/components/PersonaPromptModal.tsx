@@ -14,7 +14,7 @@ interface PersonaPromptModalProps {
   open: boolean
   title?: string
   onCancel: () => void
-  onConfirm: (personaId: string | null) => void
+  onConfirm: (personaId: string | null, relationship: string) => void
 }
 
 export function PersonaPromptModal({
@@ -26,6 +26,7 @@ export function PersonaPromptModal({
   const [personas, setPersonas] = useState<PersonaOption[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>("")
+  const [relationship, setRelationship] = useState<string>("")
 
   const isTtrpgPersona = (description: string | undefined) =>
     (description ?? "").startsWith("TTRPG Persona Sheet")
@@ -67,6 +68,10 @@ export function PersonaPromptModal({
   }, [open])
 
   if (!open) return null
+  // Reset relationship input when modal opens/closes
+  useEffect(() => {
+    if (open) setRelationship("")
+  }, [open])
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -118,6 +123,19 @@ export function PersonaPromptModal({
           </div>
         )}
 
+        {/* Relationship input */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-300 mb-1">Relationship to bot (optional)</label>
+          <input
+            type="text"
+            value={relationship}
+            onChange={e => setRelationship(e.target.value)}
+            placeholder="e.g. Friends, rivals, mentor, etc."
+            className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-950 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
+            maxLength={80}
+          />
+        </div>
+
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
@@ -128,7 +146,7 @@ export function PersonaPromptModal({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(selectedPersonaId || null)}
+            onClick={() => onConfirm(selectedPersonaId || null, relationship)}
             className="px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
           >
             Continue

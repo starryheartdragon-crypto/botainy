@@ -487,7 +487,7 @@ export default function ExplorePage() {
     setRelationshipMeters(baseline)
   }
 
-  const handleStartChat = async (botId: string, personaId: string | null) => {
+  const handleStartChat = async (botId: string, personaId: string | null, relationship?: string) => {
     try {
       setLoading(botId)
       
@@ -503,7 +503,7 @@ export default function ExplorePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ botId, personaId }),
+        body: JSON.stringify({ botId, personaId, relationship }),
       })
 
       if (!resp.ok) {
@@ -964,12 +964,12 @@ export default function ExplorePage() {
           setPersonaPromptOpen(false)
           setPendingBotId(null)
         }}
-        onConfirm={async (personaId) => {
+        onConfirm={async (personaId, relationship) => {
           if (!pendingBotId) return
           const botId = pendingBotId
           setPersonaPromptOpen(false)
           setPendingBotId(null)
-          await handleStartChat(botId, personaId)
+          await handleStartChat(botId, personaId, relationship)
         }}
       />
     </div>
