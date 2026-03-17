@@ -1,48 +1,4 @@
-  // Summary modal state
-  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
-  const [summaryText, setSummaryText] = useState('');
-  const handleCopySummary = () => {
-    navigator.clipboard.writeText(summaryText);
-    toast.success('Summary copied!');
-  };
-
-  // Updated Get Summary handler
-  const handleGetSummary = async () => {
-    if (messages.length < 15) return;
-    setLoading(true);
-    try {
-      const storyPrompt = `Summarize the following chat as a story:\n\n${messages.slice(-15).map(m => `${m.senderId === userId ? 'User' : 'Bot'}: ${m.content}`).join('\n')}`;
-      const { sendChatMessage } = await import('@/lib/openrouter');
-      const response = await sendChatMessage({
-        model: 'openai/gpt-4-turbo',
-        messages: [
-          { role: 'system', content: 'You are a creative storyteller. Summarize the chat as a story.' },
-          { role: 'user', content: storyPrompt }
-        ],
-        temperature: apiTemperature,
-        max_tokens: 512
-      });
-      const summary = response.choices[0]?.message?.content || 'No summary available.';
-      setSummaryText(summary);
-      setSummaryModalOpen(true);
-      toast.success('Summary generated!');
-    } catch (error) {
-      toast.error('Failed to generate summary.');
-    } finally {
-      setLoading(false);
-    }
-  };
-      {/* Summary Modal */}
-      {summaryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setSummaryModalOpen(false)}>✖</button>
-            <h2 className="text-xl font-bold mb-4">Chat Summary</h2>
-            <textarea readOnly value={summaryText} className="w-full h-40 p-2 border rounded mb-4 text-sm bg-gray-100" />
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mb-2" onClick={handleCopySummary}>Copy Summary</button>
-          </div>
-        </div>
-      )}
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
@@ -69,60 +25,113 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
-    // AI Assist handler
-    const handleAiAssist = async (userInput: string) => {
-      // Find previous bot message
-      const lastBotMsg = [...messages].reverse().find(m => m.senderId === bot.id)?.content || '';
-      const persona = selectedPersonaId ? { name: personaName, description: '' } : null;
-      try {
-        const headers = await getAuthHeaders(true);
-        const resp = await fetch(`/api/chats/ai-complete`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            chatHistory: `${lastBotMsg}\nUser: ${userInput}`,
-            persona,
-          }),
-        });
-        if (!resp.ok) return userInput;
-        const data = await resp.json();
-        return typeof data.suggestion === 'string' ? data.suggestion : userInput;
-      } catch {
-        return userInput;
-      }
-    };
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
   const [personaName, setPersonaName] = useState<string | null>(null)
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false)
+  const [summaryText, setSummaryText] = useState('')
+  const [apiTemperature, setApiTemperature] = useState(0.7)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+
+  // AI Assist handler
+  const handleAiAssist = async (userInput: string) => {
+    // Find previous bot message
+    const lastBotMsg = [...messages].reverse().find(m => m.senderId === bot.id)?.content || '';
+    const persona = selectedPersonaId ? { name: personaName, description: '' } : null;
+    try {
+      const headers = await getAuthHeaders(true);
+      const resp = await fetch(`/api/chats/ai-complete`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          chatHistory: `${lastBotMsg}\nUser: ${userInput}`,
+          persona,
+        }),
+      });
+      if (!resp.ok) return userInput;
+      const data = await resp.json();
+      return typeof data.suggestion === 'string' ? data.suggestion : userInput;
+    } catch {
+      return userInput;
+    }
+  };
 
   // SoundtrackDrawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aiTracks, setAiTracks] = useState<Track[]>([]);
+  const [userTracks, setUserTracks] = useState<Track[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+
   type Track = {
     title: string;
     youtubeId: string;
     reasoning: string;
     addedBy: 'User' | 'AI';
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={handleCloseSettings}>✖</button>
-            <h2 className="text-xl font-bold mb-4">Chat Settings</h2>
-            <div className="space-y-4">
-              {/* New Chat */}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
-              {/* Get Summary */}
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
-              {/* API Settings */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2">Temperature</label>
-                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
-                <div className="text-xs text-gray-600 mt-1">Current: {apiTemperature}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+  };
+
+  const handleCopySummary = () => {
+    navigator.clipboard.writeText(summaryText);
+    toast.success('Summary copied!');
+  };
+
+  const handleGetSummary = async () => {
+    if (messages.length < 15) return;
+    setLoading(true);
+    try {
+      const storyPrompt = `Summarize the following chat as a story:\n\n${messages.slice(-15).map(m => `${m.senderId === userId ? 'User' : 'Bot'}: ${m.content}`).join('\n')}`;
+      const { sendChatMessage } = await import('@/lib/openrouter');
+      const response = await sendChatMessage({
+        model: 'openai/gpt-4-turbo',
+        messages: [
+          { role: 'system', content: 'You are a creative storyteller. Summarize the chat as a story.' },
+          { role: 'user', content: storyPrompt }
+        ],
+        temperature: apiTemperature,
+        max_tokens: 512
+      });
+      const summary = response.choices[0]?.message?.content || 'No summary available.';
+      setSummaryText(summary);
+      setSummaryModalOpen(true);
+      toast.success('Summary generated!');
+    } catch (error) {
+      toast.error('Failed to generate summary.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewChat = async () => {
+    try {
+      const headers = await getAuthHeaders(true);
+      const resp = await fetch(`/api/chats`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ botId: bot.id }),
+      });
+      if (resp.ok) {
+        toast.success('New chat created!');
+        setSettingsModalOpen(false);
+      }
+    } catch (error) {
+      toast.error('Failed to create new chat.');
+    }
+  };
+
+  const handleCloseSettings = () => setSettingsModalOpen(false);
+
+  const fetchAiTracks = () => {
+    setAiTracks([
+      {
+        title: 'Synthwave Dream',
+        youtubeId: 'dQw4w9WgXcQ',
+        reasoning: 'Perfect for the dramatic tension.',
+        addedBy: 'AI',
+      },
+      {
+        title: 'Cyberpunk Vibes',
+        youtubeId: 'jNQXAC9IVRw',
         reasoning: 'Anachronistic fit for the mood.',
         addedBy: 'AI',
       },
@@ -477,7 +486,6 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       </button>
 
       {/* Soundtrack Drawer */}
-
       <SoundtrackDrawer
         aiTracks={aiTracks}
         userTracks={userTracks}
@@ -487,6 +495,40 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         open={drawerOpen}
         onClose={handleCloseDrawer}
       />
+
+      {/* Summary Modal */}
+      {summaryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setSummaryModalOpen(false)}>✖</button>
+            <h2 className="text-xl font-bold mb-4">Chat Summary</h2>
+            <textarea readOnly value={summaryText} className="w-full h-40 p-2 border rounded mb-4 text-sm bg-gray-100" />
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mb-2" onClick={handleCopySummary}>Copy Summary</button>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={handleCloseSettings}>✖</button>
+            <h2 className="text-xl font-bold mb-4">Chat Settings</h2>
+            <div className="space-y-4">
+              {/* New Chat */}
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
+              {/* Get Summary */}
+              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
+              {/* API Settings */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2">Temperature</label>
+                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
+                <div className="text-xs text-gray-600 mt-1">Current: {apiTemperature}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
