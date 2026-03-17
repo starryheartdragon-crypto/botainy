@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
       dmMode: rawDmMode,
       dmUserId: rawDmUserId,
       dmBotId: rawDmBotId,
+      selectedPersonaId: rawSelectedPersonaId,
       personaRelationshipContext: rawPersonaRelationshipContext,
     } = body
 
@@ -277,7 +278,31 @@ export async function POST(req: NextRequest) {
     let dmMode: 'user' | 'bot' | null = null
     let dmUserId: string | null = null
     let dmBotId: string | null = null
+    let selectedPersonaId: string | null = null
     let personaRelationshipContext: string | null = null
+
+    const parsedSelectedPersonaId = String(rawSelectedPersonaId || '').trim()
+    if (parsedSelectedPersonaId) {
+      if (!isUuid(parsedSelectedPersonaId)) {
+        return NextResponse.json({ error: 'Invalid selected persona id' }, { status: 400 })
+      }
+
+      const { data: personaRow, error: personaError } = await serviceClient()
+      .from('personas')
+        .select('id, user_id')
+        .eq('id', parsedSelectedPersonaId)
+        .maybeSingle()
+
+      if (personaError) {
+        return NextResponse.json({ error: personaError.message }, { status: 500 })
+      }
+
+      if (!personaRow || personaRow.user_id !== user.id) {
+        return NextResponse.json({ error: 'Selected persona is invalid for this user' }, { status: 403 })
+      }
+
+      selectedPersonaId = personaRow.id
+    }
 
     if (groupType === 'ttrpg') {
       if (!trimmedRules) {
@@ -359,13 +384,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Add creator as member
-    await serviceClient()
+    const { error: creatorMemberError } = await serviceClient()
       .from('group_chat_members')
       .insert({
         group_chat_id: groupChat.id,
         user_id: user.id,
         is_moderator: true,
+        persona_id: selectedPersonaId,
       })
+
+    if (creatorMemberError) {
+      return NextResponse.json({ error: creatorMemberError.message }, { status: 500 })
+    }
 
     if (additionalUserIds.length > 0) {
       const { error: membersError } = await serviceClient()
