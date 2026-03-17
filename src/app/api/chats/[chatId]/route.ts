@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -80,6 +80,7 @@ export async function GET(
       user_id: string
       bot_id: string
       persona_id?: string | null
+      is_nsfw?: boolean
       created_at?: string
       updated_at?: string
     } | null = null
@@ -139,6 +140,7 @@ export async function GET(
       id: chat.id,
       bot_id: chat.bot_id,
       persona_id: chat.persona_id ?? null,
+      is_nsfw: chat.is_nsfw ?? false,
       bot: safeBot,
     })
   } catch (err: unknown) {
@@ -193,6 +195,57 @@ export async function DELETE(
     }
 
     return NextResponse.json({ ok: true })
+  } catch (err: unknown) {
+    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ chatId: string }> }
+) {
+  try {
+    const user = await getAuthUser(req)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { chatId } = await params
+    const { serviceClient } = getSupabaseClients()
+
+    const body = await req.json()
+    const { is_nsfw } = body
+
+    if (typeof is_nsfw !== 'boolean') {
+      return NextResponse.json({ error: 'is_nsfw must be a boolean' }, { status: 400 })
+    }
+
+    const { data: chat, error: chatError } = await serviceClient
+      .from('chats')
+      .select('id, user_id')
+      .eq('id', chatId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (chatError) {
+      return NextResponse.json({ error: chatError.message }, { status: 500 })
+    }
+
+    if (!chat) {
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 })
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('chats')
+      .update({ is_nsfw })
+      .eq('id', chatId)
+      .eq('user_id', user.id)
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, is_nsfw })
   } catch (err: unknown) {
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
   }
