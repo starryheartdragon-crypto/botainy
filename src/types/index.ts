@@ -45,6 +45,7 @@ export interface Chat {
   botIds: string[]
   isGroupChat: boolean
   roomId?: string
+  is_nsfw: boolean
   createdAt: string
   updatedAt: string
 }

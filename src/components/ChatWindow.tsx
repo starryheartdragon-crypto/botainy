@@ -1,3 +1,48 @@
+  // Summary modal state
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const handleCopySummary = () => {
+    navigator.clipboard.writeText(summaryText);
+    toast.success('Summary copied!');
+  };
+
+  // Updated Get Summary handler
+  const handleGetSummary = async () => {
+    if (messages.length < 15) return;
+    setLoading(true);
+    try {
+      const storyPrompt = `Summarize the following chat as a story:\n\n${messages.slice(-15).map(m => `${m.senderId === userId ? 'User' : 'Bot'}: ${m.content}`).join('\n')}`;
+      const { sendChatMessage } = await import('@/lib/openrouter');
+      const response = await sendChatMessage({
+        model: 'openai/gpt-4-turbo',
+        messages: [
+          { role: 'system', content: 'You are a creative storyteller. Summarize the chat as a story.' },
+          { role: 'user', content: storyPrompt }
+        ],
+        temperature: apiTemperature,
+        max_tokens: 512
+      });
+      const summary = response.choices[0]?.message?.content || 'No summary available.';
+      setSummaryText(summary);
+      setSummaryModalOpen(true);
+      toast.success('Summary generated!');
+    } catch (error) {
+      toast.error('Failed to generate summary.');
+    } finally {
+      setLoading(false);
+    }
+  };
+      {/* Summary Modal */}
+      {summaryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setSummaryModalOpen(false)}>✖</button>
+            <h2 className="text-xl font-bold mb-4">Chat Summary</h2>
+            <textarea readOnly value={summaryText} className="w-full h-40 p-2 border rounded mb-4 text-sm bg-gray-100" />
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mb-2" onClick={handleCopySummary}>Copy Summary</button>
+          </div>
+        </div>
+      )}
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
@@ -59,25 +104,25 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     youtubeId: string;
     reasoning: string;
     addedBy: 'User' | 'AI';
-    timestamp?: number;
-  };
-  const [aiTracks, setAiTracks] = useState<Track[]>([]);
-  const [userTracks, setUserTracks] = useState<Track[]>([]);
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-
-  // Fetch AI suggestions (stub, replace with API call later)
-  const fetchAiTracks = async () => {
-    // Placeholder: Replace with API call
-    setAiTracks([
-      {
-        title: 'Period Jazz Example',
-        youtubeId: 'dQw4w9WgXcQ',
-        reasoning: 'This matches the character’s brewing anger.',
-        addedBy: 'AI',
-      },
-      {
-        title: 'Modern Rock Example',
-        youtubeId: 'kXYiU_JCYtU',
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={handleCloseSettings}>✖</button>
+            <h2 className="text-xl font-bold mb-4">Chat Settings</h2>
+            <div className="space-y-4">
+              {/* New Chat */}
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
+              {/* Get Summary */}
+              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
+              {/* API Settings */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2">Temperature</label>
+                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
+                <div className="text-xs text-gray-600 mt-1">Current: {apiTemperature}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
         reasoning: 'Anachronistic fit for the mood.',
         addedBy: 'AI',
       },

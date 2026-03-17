@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { botId, personaId } = body
+    const { botId, personaId, is_nsfw } = body
     const normalizedPersonaId =
       typeof personaId === 'string' && personaId.trim() ? personaId.trim() : null
     const personaSupported = await chatsTableSupportsPersona(serviceClient)
@@ -331,9 +331,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Create a new chat
-    const insertPayload: Record<string, string | null> = {
+    const insertPayload: Record<string, string | boolean | null> = {
       user_id: user.id,
       bot_id: botId,
+      is_nsfw: !!is_nsfw,
     }
 
     if (personaSupported) {
