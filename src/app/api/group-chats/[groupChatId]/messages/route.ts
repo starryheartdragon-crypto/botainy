@@ -6,7 +6,7 @@ import {
   resolveOpenRouterModel,
   resolveOpenRouterReferer,
 } from '@/lib/openrouterServer'
-import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { NSFW_CONTENT_PERMISSION, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -23,6 +23,7 @@ type GroupChatContext = {
   name: string
   creator_id: string
   group_type: 'general' | 'roleplay' | 'ttrpg'
+  is_nsfw: boolean
   rules: string | null
   universe: string | null
   persona_relationship_context: string | null
@@ -402,6 +403,7 @@ async function generateBotReply({
     bot.personality,
     buildGroupModePrompt(group),
     personaLine,
+    group.is_nsfw ? NSFW_CONTENT_PERMISSION : null,
     criticalRoleplayRules,
     ROLEPLAY_FORMATTING_INSTRUCTIONS,
     'Only produce your own in-character message. Do not narrate other participants.',
@@ -546,6 +548,7 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
     name: String(row.name || 'Group Chat'),
     creator_id: String(row.creator_id || ''),
     group_type: normalizedGroupType,
+    is_nsfw: row.is_nsfw === true,
     rules: typeof row.rules === 'string' ? row.rules : null,
     universe: typeof row.universe === 'string' ? row.universe : null,
     persona_relationship_context:
