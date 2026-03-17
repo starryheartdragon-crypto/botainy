@@ -25,6 +25,7 @@ interface ChatWindowProps {
   initialSelectedPersonaId?: string | null
 }
 
+export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
@@ -223,8 +224,8 @@ interface ChatWindowProps {
   }, [normalizeMessage])
 
   useEffect(() => {
-    setSelectedPersonaId(initialSelectedPersonaId)
-  }, [initialSelectedPersonaId])
+    setSelectedPersonaId(selectedPersonaId)
+  }, [selectedPersonaId])
 
   const getAuthHeaders = async (includeJson = false) => {
     const {
