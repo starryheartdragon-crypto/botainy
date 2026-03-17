@@ -12,50 +12,7 @@ export default function CreateBotPage() {
   const router = useRouter()
   const [mode, setMode] = useState<"bot" | "persona" | "ttrpg">("bot")
   const [loading, setLoading] = useState(false)
-  const [aiBotLoading, setAiBotLoading] = useState(false)
-  const [aiBotSuggestion, setAiBotSuggestion] = useState<string | null>(null)
-  // AI Bot Assist handler
-  const handleAiBotAssist = async () => {
-    setAiBotLoading(true);
-    setAiBotSuggestion(null);
-    try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not authenticated");
-      const prompt = `Bot Name: ${botName}\nUniverse: ${botUniverse}\nDescription: ${botDescription}\nPersonality: ${botPersonality}`;
-      const resp = await fetch("/api/bots/ai-complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ prompt }),
-      });
-      if (!resp.ok) {
-        setAiBotSuggestion("AI assist failed.");
-        return;
-      }
-      const data = await resp.json();
-      const suggestion = data.suggestion || "";
-      setAiBotSuggestion(suggestion);
-
-      // Attempt to parse fields from suggestion
-      // Example expected format:
-      // Name: ...\nDescription: ...\nPersonality: ...\nAvatar: ...
-      const nameMatch = suggestion.match(/Name\s*:\s*(.+)/i);
-      const descMatch = suggestion.match(/Description\s*:\s*([\s\S]*?)(?:\n|$)/i);
-      const persMatch = suggestion.match(/Personality\s*:\s*([\s\S]*?)(?:\n|$)/i);
-      const avatarMatch = suggestion.match(/Avatar\s*:\s*([\s\S]*?)(?:\n|$)/i);
-
-      if (nameMatch && nameMatch[1]) setBotName(nameMatch[1].trim());
-      if (descMatch && descMatch[1]) setBotDescription(descMatch[1].trim());
-      if (persMatch && persMatch[1]) setBotPersonality(persMatch[1].trim());
-      if (avatarMatch && avatarMatch[1]) setBotAvatarUrl(avatarMatch[1].trim());
-    } catch (err) {
-      setAiBotSuggestion("AI assist failed.");
-    } finally {
-      setAiBotLoading(false);
-    }
-  };
+  // ...existing code...
 
   const [botName, setBotName] = useState("")
   const [botUniverse, setBotUniverse] = useState("")
@@ -892,23 +849,7 @@ export default function CreateBotPage() {
               </form>
             </div>
 
-            {/* AI Bot Assist Button */}
-            <div className="mb-4 flex justify-end">
-              <button
-                type="button"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow disabled:opacity-50"
-                onClick={handleAiBotAssist}
-                disabled={aiBotLoading || loading}
-              >
-                {aiBotLoading ? "Requesting AI..." : "AI Bot Assist"}
-              </button>
-            </div>
-            {aiBotSuggestion && (
-              <div className="px-3 py-2 bg-gray-800 text-white rounded mb-2">
-                <strong>AI Bot Suggestion:</strong>
-                <div className="mt-1 whitespace-pre-line">{aiBotSuggestion}</div>
-              </div>
-            )}
+            {/* AI Bot Assist removed */}
             <form
               onSubmit={handleCreateBot}
               className="bg-gray-800/40 border border-gray-700/50 rounded-2xl p-5 sm:p-8 shadow-xl backdrop-blur-sm space-y-7"
