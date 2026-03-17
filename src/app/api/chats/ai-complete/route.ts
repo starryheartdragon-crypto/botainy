@@ -26,16 +26,25 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { chatHistory, persona } = body;
-    if (!chatHistory || !persona) {
-      return NextResponse.json({ error: 'Missing chat history or persona' }, { status: 400 });
+    const { lastBotMessage, userDraft, persona } = body;
+    if (lastBotMessage === undefined || userDraft === undefined) {
+      return NextResponse.json({ error: 'Missing lastBotMessage or userDraft' }, { status: 400 });
     }
 
     // Construct prompt
-    const personaPrompt = persona
-      ? `### **User Persona (${persona.name})**\nThe user is roleplaying as the character described below. Treat any use of \"I\" or \"my\" in the following description as referring to ${persona.name}, not you. **CRITICAL GUARDRAIL:** You (the bot) do NOT automatically know the user's backstory, goals, or secrets. You only know their physical appearance and what they have explicitly revealed to you in dialogue.\n\n${persona.description}`
+    const personaContext = persona
+      ? `The user is roleplaying as ${persona.name}. ${persona.description ? persona.description : ''}`
       : 'The user is chatting as themselves.';
-    const prompt = `${personaPrompt}\n\nChat History:\n${chatHistory}\n\nSuggest a helpful, relevant reply for the user.`;
+    const prompt = [
+      personaContext,
+      '',
+      'The bot just said:',
+      lastBotMessage || '(start of conversation)',
+      '',
+      `The user has started typing their reply but has not finished it. Complete the user's message naturally, staying true to the user's voice and intent. Do NOT write the bot's response — only continue what the user has already written.`,
+      '',
+      `User's draft: ${userDraft}`,
+    ].join('\n');
 
     // Call OpenRouter
     const aiResponse = await callOpenRouter({ prompt });

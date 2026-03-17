@@ -78,7 +78,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
   // AI Assist handler
   const handleAiAssist = async (userInput: string) => {
-    // Find previous bot message
+    // Find the last bot message for context
     const lastBotMsg = [...messages].reverse().find(m => m.senderId === bot.id)?.content || '';
     const persona = selectedPersonaId ? { name: personaName, description: '' } : null;
     try {
@@ -87,7 +87,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         method: 'POST',
         headers,
         body: JSON.stringify({
-          chatHistory: `${lastBotMsg}\nUser: ${userInput}`,
+          lastBotMessage: lastBotMsg,
+          userDraft: userInput,
           persona,
         }),
       });
