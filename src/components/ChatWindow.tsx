@@ -579,7 +579,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
                       ⚠️ Unfiltered Content
                     </h4>
                     <p className="text-xs text-gray-300 leading-relaxed">
-                      Enabling NSFW removes AI safety filters. This allows explicit romance and "spicy" content, but also permits graphic blood, gore, and dark themes.
+                      Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
                     </p>
                     <div className="mt-2 pt-2 border-t border-gray-800">
                       <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
