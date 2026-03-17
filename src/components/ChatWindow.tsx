@@ -50,6 +50,7 @@ import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { ChatMessage, Bot } from '@/types'
+import { useAuthStore } from '@/store/authStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
@@ -68,7 +69,7 @@ interface ChatWindowProps {
   initialSelectedPersonaId?: string | null
 }
 
-export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
+  const { user } = useAuthStore()
     // AI Assist handler
     const handleAiAssist = async (userInput: string) => {
       // Find previous bot message
@@ -97,8 +98,48 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
   const [personaName, setPersonaName] = useState<string | null>(null)
 
+  // NSFW toggle state
+  const [isNsfw, setIsNsfw] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [savingNsfw, setSavingNsfw] = useState(false);
   // SoundtrackDrawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+    // Load chat NSFW state
+    useEffect(() => {
+      const fetchChat = async () => {
+        try {
+          const headers = await getAuthHeaders()
+          const resp = await fetch(`/api/chats/${chatId}`, { headers })
+          if (resp.ok) {
+            const data = await resp.json()
+            setIsNsfw(!!data.is_nsfw)
+          }
+        } catch {}
+      }
+      fetchChat()
+    }, [chatId])
+    // Save NSFW toggle
+    const handleToggleNsfw = async () => {
+      setSavingNsfw(true)
+      try {
+        const headers = await getAuthHeaders(true)
+        const resp = await fetch(`/api/chats/${chatId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ is_nsfw: !isNsfw }),
+        })
+        if (resp.ok) {
+          setIsNsfw(!isNsfw)
+          toast.success(`Chat is now ${!isNsfw ? 'NSFW' : 'SFW'}`)
+        } else {
+          toast.error('Failed to update NSFW setting')
+        }
+      } catch {
+        toast.error('Failed to update NSFW setting')
+      } finally {
+        setSavingNsfw(false)
+      }
+    }
   type Track = {
     title: string;
     youtubeId: string;
@@ -466,7 +507,16 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         lastBotMessage={messages.length ? messages[messages.length - 1].content : ''}
       />
 
-      {/* Magic Wand Icon - Top Right, under NotificationBell */}
+      {/* Settings Icon */}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="fixed top-20 right-20 z-40 p-4 rounded-full bg-gray-700 hover:bg-gray-800 text-white shadow-lg flex items-center text-3xl"
+        title="Chat Settings"
+        style={{ boxShadow: '0 4px 24px rgba(64,64,64,0.3)' }}
+      >
+        <span role="img" aria-label="Settings">⚙️</span>
+      </button>
+      {/* Magic Wand Icon */}
       <button
         onClick={handleOpenDrawer}
         className="fixed top-20 right-8 z-40 p-4 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg flex items-center text-3xl"
@@ -475,6 +525,32 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       >
         <span role="img" aria-label="Magic Wand">🪄</span>
       </button>
+      {/* Chat Settings Modal */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setSettingsOpen(false)}>✖</button>
+            <h2 className="text-xl font-bold mb-4">Chat Settings</h2>
+            {/* NSFW Toggle for adults only */}
+            {user && user.birthday && (new Date().getFullYear() - new Date(user.birthday).getFullYear() >= 18) ? (
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium">NSFW Mode</span>
+                <button
+                  className={`w-16 h-8 rounded-full border transition ${isNsfw ? 'bg-red-600 border-red-700' : 'bg-gray-300 border-gray-400'}`}
+                  onClick={handleToggleNsfw}
+                  disabled={savingNsfw}
+                  aria-pressed={isNsfw}
+                >
+                  <span className={`inline-block w-7 h-7 rounded-full bg-white shadow transform transition ${isNsfw ? 'translate-x-8' : ''}`}></span>
+                </button>
+                <span className="ml-2 text-xs text-gray-600">{isNsfw ? 'NSFW' : 'SFW'}</span>
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 mb-4">NSFW toggle available for users 18+</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Soundtrack Drawer */}
 
