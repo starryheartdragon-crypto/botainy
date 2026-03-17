@@ -5,10 +5,13 @@ import { useState } from 'react'
 interface MessageInputProps {
   onSendMessage: (content: string) => void
   loading?: boolean
+  onAiAssist?: (userInput: string) => Promise<string>
+  lastBotMessage?: string
 }
 
 export function MessageInput({ onSendMessage, loading }: MessageInputProps) {
   const [input, setInput] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
 
   const handleSend = () => {
     if (input.trim()) {
@@ -54,6 +57,28 @@ export function MessageInput({ onSendMessage, loading }: MessageInputProps) {
         >
           {loading ? '...' : 'Send'}
         </button>
+        {/* AI Assist Button */}
+        {typeof onAiAssist === 'function' && (
+          <button
+            type="button"
+            disabled={aiLoading || loading}
+            className="px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs sm:text-sm rounded-full hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium shadow-md hover:shadow-lg whitespace-nowrap"
+            style={{ minWidth: 44 }}
+            title="AI Assist"
+            onClick={async () => {
+              if (aiLoading || loading) return;
+              setAiLoading(true);
+              try {
+                const suggestion = await onAiAssist(input);
+                if (suggestion && suggestion.length > 0) setInput(suggestion);
+              } finally {
+                setAiLoading(false);
+              }
+            }}
+          >
+            {aiLoading ? '...' : 'AI Assist'}
+          </button>
+        )}
       </div>
     </form>
   )

@@ -24,6 +24,28 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
+    // AI Assist handler
+    const handleAiAssist = async (userInput: string) => {
+      // Find previous bot message
+      const lastBotMsg = [...messages].reverse().find(m => m.senderId === bot.id)?.content || '';
+      const persona = selectedPersonaId ? { name: personaName, description: '' } : null;
+      try {
+        const headers = await getAuthHeaders(true);
+        const resp = await fetch(`/api/chats/ai-complete`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            chatHistory: `${lastBotMsg}\nUser: ${userInput}`,
+            persona,
+          }),
+        });
+        if (!resp.ok) return userInput;
+        const data = await resp.json();
+        return typeof data.suggestion === 'string' ? data.suggestion : userInput;
+      } catch {
+        return userInput;
+      }
+    };
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
@@ -392,7 +414,12 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       />
 
       {/* Input */}
-      <MessageInput onSendMessage={handleSendMessage} loading={loading} />
+      <MessageInput
+        onSendMessage={handleSendMessage}
+        loading={loading}
+        onAiAssist={handleAiAssist}
+        lastBotMessage={messages.length ? messages[messages.length - 1].content : ''}
+      />
 
       {/* Magic Wand Icon - Top Right, under NotificationBell */}
       <button
