@@ -9,7 +9,7 @@ interface MessageInputProps {
   lastBotMessage?: string
 }
 
-export function MessageInput({ onSendMessage, loading }: MessageInputProps) {
+export function MessageInput({ onSendMessage, loading, onAiAssist }: MessageInputProps) {
   const [input, setInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
 
