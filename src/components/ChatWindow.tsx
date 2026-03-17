@@ -6,6 +6,7 @@ import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { ChatMessage, Bot } from '@/types'
+import { useAuthStore } from '@/store/authStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
@@ -24,7 +25,6 @@ interface ChatWindowProps {
   initialSelectedPersonaId?: string | null
 }
 
-export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = null }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
@@ -34,6 +34,46 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [summaryText, setSummaryText] = useState('')
   const [apiTemperature, setApiTemperature] = useState(0.7)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  // NSFW toggle state
+  const { user } = useAuthStore()
+  const [isNsfw, setIsNsfw] = useState(false)
+  const [savingNsfw, setSavingNsfw] = useState(false)
+  // Load chat NSFW state
+  useEffect(() => {
+    const fetchChat = async () => {
+      try {
+        const headers = await getAuthHeaders()
+        const resp = await fetch(`/api/chats/${chatId}`, { headers })
+        if (resp.ok) {
+          const data = await resp.json()
+          setIsNsfw(!!data.is_nsfw)
+        }
+      } catch {}
+    }
+    fetchChat()
+  }, [chatId])
+  // Save NSFW toggle
+  const handleToggleNsfw = async () => {
+    setSavingNsfw(true)
+    try {
+      const headers = await getAuthHeaders(true)
+      const resp = await fetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ is_nsfw: !isNsfw }),
+      })
+      if (resp.ok) {
+        setIsNsfw(!isNsfw)
+        toast.success(`Chat is now ${!isNsfw ? 'NSFW' : 'SFW'}`)
+      } else {
+        toast.error('Failed to update NSFW setting')
+      }
+    } catch {
+      toast.error('Failed to update NSFW setting')
+    } finally {
+      setSavingNsfw(false)
+    }
+  }
 
   // AI Assist handler
   const handleAiAssist = async (userInput: string) => {
@@ -519,6 +559,37 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
               {/* Get Summary */}
               <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
+              {/* NSFW Toggle & Warning Tooltip */}
+              {user && user.birthday && (new Date().getFullYear() - new Date(user.birthday).getFullYear() >= 18) ? (
+                <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
+                  <span className="text-xs font-bold text-gray-400">{isNsfw ? 'NSFW' : 'SFW'}</span>
+                  <button 
+                    onClick={handleToggleNsfw}
+                    disabled={savingNsfw}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-600'}`}
+                    aria-pressed={isNsfw}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                  {/* The Hoverbox (Hidden by default, shown on group-hover) */}
+                  <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
+                    <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
+                    <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
+                      ⚠️ Unfiltered Content
+                    </h4>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      Enabling NSFW removes AI safety filters. This allows explicit romance and "spicy" content, but also permits graphic blood, gore, and dark themes.
+                    </p>
+                    <div className="mt-2 pt-2 border-t border-gray-800">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                        Use at your own risk. We are not liable for generated content.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 mb-4">NSFW toggle available for users 18+</div>
+              )}
               {/* API Settings */}
               <div className="mt-4">
                 <label className="block text-sm font-medium mb-2">Temperature</label>
