@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useAuthStore } from '@/store/authStore'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PersonaSelector } from '@/components/PersonaSelector'
@@ -25,7 +24,6 @@ interface GroupChatInfo {
 }
 
 export default function GroupChatDetailPage() {
-  const { user } = useAuthStore()
   const params = useParams()
   const router = useRouter()
   const groupChatId = params.groupChatId as string
@@ -484,47 +482,43 @@ export default function GroupChatDetailPage() {
       {/* Settings Modal */}
       {settingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setSettingsOpen(false)}>&#10006;</button>
-            <h2 className="text-xl font-bold mb-4 text-gray-900">Group Chat Settings</h2>
+          <div className="bg-gray-900 rounded-lg shadow-xl p-6 w-96 relative border border-gray-700">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-200" onClick={() => setSettingsOpen(false)}>&#10006;</button>
+            <h2 className="text-xl font-bold mb-4 text-white">Group Chat Settings</h2>
             <div className="space-y-4">
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
               <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15} onClick={handleGetSummary}>Get Summary (Story)</button>
               {/* NSFW Toggle & Warning Tooltip */}
-              {user && user.birthday && (new Date().getFullYear() - new Date(user.birthday).getFullYear() >= 18) ? (
-                <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
-                  <span className="text-xs font-bold text-gray-400">{isNsfw ? 'NSFW' : 'SFW'}</span>
-                  <button
-                    onClick={handleToggleNsfw}
-                    disabled={savingNsfw}
-                    className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-600'}`}
-                    aria-pressed={isNsfw}
-                  >
-                    <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                  {/* The Hoverbox (Hidden by default, shown on group-hover) */}
-                  <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
-                    <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
-                    <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
-                      &#9888;&#65039; Unfiltered Content
-                    </h4>
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
+              <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
+                <span className="text-xs font-bold text-gray-400">{isNsfw ? 'NSFW' : 'SFW'}</span>
+                <button
+                  onClick={handleToggleNsfw}
+                  disabled={savingNsfw}
+                  className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-600'}`}
+                  aria-pressed={isNsfw}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+                {/* The Hoverbox (Hidden by default, shown on group-hover) */}
+                <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
+                  <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
+                  <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
+                    &#9888;&#65039; Unfiltered Content
+                  </h4>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-gray-800">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                      Use at your own risk. We are not liable for generated content.
                     </p>
-                    <div className="mt-2 pt-2 border-t border-gray-800">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                        Use at your own risk. We are not liable for generated content.
-                      </p>
-                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-xs text-gray-500 mb-4">NSFW toggle available for users 18+</div>
-              )}
+              </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Temperature</label>
                 <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
-                <div className="text-xs text-gray-600 mt-1">Current: {apiTemperature}</div>
+                <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
               </div>
             </div>
           </div>
