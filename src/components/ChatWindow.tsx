@@ -387,81 +387,52 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
 
   const handleSendMessage = async (content: string) => {
     try {
-      setLoading(true)
-      const headers = await getAuthHeaders(true)
+      setLoading(true);
+      const headers = await getAuthHeaders(true);
       const resp = await fetch(`/api/chats/${chatId}/messages`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ content, personaId: selectedPersonaId }),
-      })
-
+      });
       if (!resp.ok) {
-        const rawBody = await resp.text().catch(() => '')
-        let parsedBody: unknown = null
-
-        if (rawBody) {
-          try {
-            parsedBody = JSON.parse(rawBody)
-          } catch {
-            parsedBody = rawBody
-          }
-        }
-
-        const payload = parsedBody as Record<string, unknown> | null
-        const payloadError =
-          payload && typeof payload === 'object' && typeof payload.error === 'string'
-            ? payload.error
-            : null
-        const payloadMessage =
-          payload && typeof payload === 'object' && typeof payload.message === 'string'
-            ? payload.message
-            : null
-
-        const fallback = `Request failed with status ${resp.status}${resp.statusText ? ` ${resp.statusText}` : ''}`
-        const message = payloadError || payloadMessage || fallback
-        const responseBody = parsedBody ?? (rawBody || null)
-
+        const fallback = `Request failed with status ${resp.status}${resp.statusText ? ` ${resp.statusText}` : ''}`;
+        const message = fallback;
+        const responseBody = await resp.text();
         console.warn('Failed to send message:', {
           status: resp.status,
           message,
           body: responseBody,
-        })
-
+        });
         if (resp.status === 401) {
-          toast.error('Your session has expired. Please sign in again.')
+          toast.error('Your session has expired. Please sign in again.');
         } else {
-          toast.error(message)
+          toast.error(message);
         }
-
-        return
+        return;
       }
-
       const data = (await resp.json()) as {
-        userMessage?: MessagePayload | null
-        botMessage?: MessagePayload | null
-        warning?: string
-      }
-
-      const newMessages: MessagePayload[] = []
+        userMessage?: MessagePayload | null;
+        botMessage?: MessagePayload | null;
+        warning?: string;
+      };
+      const newMessages: MessagePayload[] = [];
       if (data.userMessage) {
-        newMessages.push(data.userMessage)
+        newMessages.push(data.userMessage);
       }
       if (data.botMessage) {
-        newMessages.push(data.botMessage)
+        newMessages.push(data.botMessage);
       }
-
       if (newMessages.length) {
-        upsertMessages(newMessages)
+        upsertMessages(newMessages);
       }
-
       if (data.warning) {
-        toast.error(data.warning)
+        toast.error(data.warning);
       }
     } catch (error) {
-      console.warn('Error sending message:', error)
-      toast.error('Failed to send message. Please try again.')
+      console.warn('Error sending message:', error);
+      toast.error('Failed to send message. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -526,6 +497,16 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         <span role="img" aria-label="Magic Wand">🪄</span>
       </button>
 
+      {/* Settings Button */}
+      <button
+        onClick={() => setSettingsModalOpen(true)}
+        className="fixed top-20 right-24 z-40 p-4 rounded-full bg-gray-700 hover:bg-gray-800 text-white shadow-lg flex items-center text-3xl"
+        title="Chat Settings"
+        style={{ boxShadow: '0 4px 24px rgba(64,64,64,0.3)' }}
+      >
+        <span role="img" aria-label="Settings">⚙️</span>
+      </button>
+
       {/* Soundtrack Drawer */}
       <SoundtrackDrawer
         aiTracks={aiTracks}
@@ -552,51 +533,50 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       {/* Settings Modal */}
       {settingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 relative">
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={handleCloseSettings}>✖</button>
-            <h2 className="text-xl font-bold mb-4">Chat Settings</h2>
+          <div className="bg-gray-900 rounded-lg shadow-xl p-6 w-96 relative border border-gray-700">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-200" onClick={handleCloseSettings}>✖</button>
+            <h2 className="text-xl font-bold mb-4 text-white">Chat Settings</h2>
             <div className="space-y-4">
               {/* New Chat */}
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
               {/* Get Summary */}
               <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
               {/* NSFW Toggle & Warning Tooltip */}
-              {user && user.birthday && (new Date().getFullYear() - new Date(user.birthday).getFullYear() >= 18) ? (
-                <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
-                  <span className="text-xs font-bold text-gray-400">{isNsfw ? 'NSFW' : 'SFW'}</span>
-                  <button 
-                    onClick={handleToggleNsfw}
-                    disabled={savingNsfw}
-                    className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-600'}`}
-                    aria-pressed={isNsfw}
-                  >
-                    <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                  {/* The Hoverbox (Hidden by default, shown on group-hover) */}
-                  <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
-                    <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
-                    <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
-                      ⚠️ Unfiltered Content
-                    </h4>
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
+              <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
+                <span className="text-xs font-bold text-gray-300">{isNsfw ? 'NSFW' : 'SFW'}</span>
+                <button 
+                  onClick={handleToggleNsfw}
+                  disabled={savingNsfw}
+                  className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-700'}`}
+                  aria-pressed={isNsfw}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-gray-200 absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+                {/* The Hoverbox (Hidden by default, shown on group-hover) */}
+                <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
+                  <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
+                  <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
+                    ⚠️ Unfiltered Content
+                  </h4>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-gray-800">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                      Use at your own risk. We are not liable for generated content.
                     </p>
-                    <div className="mt-2 pt-2 border-t border-gray-800">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                        Use at your own risk. We are not liable for generated content.
-                      </p>
-                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-xs text-gray-500 mb-4">NSFW toggle available for users 18+</div>
-              )}
-              {/* API Settings */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2">Temperature</label>
-                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
-                <div className="text-xs text-gray-600 mt-1">Current: {apiTemperature}</div>
               </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2 text-gray-200">Temperature</label>
+                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
+                <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={handleCloseSettings}>Cancel</button>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => {/* Save logic here */}}>Save</button>
             </div>
           </div>
         </div>

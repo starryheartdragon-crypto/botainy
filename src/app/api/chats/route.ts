@@ -1,3 +1,45 @@
+// PATCH /api/chats/[chatId] - Update NSFW status for a chat
+export async function PATCH(req: NextRequest) {
+  try {
+    const { serviceClient } = getSupabaseClients();
+    const user = await getAuthUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Extract chatId from URL
+    const urlParts = req.url.split('/');
+    const chatId = urlParts[urlParts.length - 1];
+    if (!chatId) {
+      return NextResponse.json({ error: 'Chat ID required' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const { is_nsfw } = body;
+    if (typeof is_nsfw !== 'boolean') {
+      return NextResponse.json({ error: 'is_nsfw must be boolean' }, { status: 400 });
+    }
+
+    // Update chat NSFW status
+    const { data, error } = await serviceClient
+      .from('chats')
+      .update({ is_nsfw })
+      .eq('id', chatId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: formatSupabaseError(error) }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'Chat not found or not owned by user' }, { status: 404 });
+    }
+    return NextResponse.json(data, { status: 200 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
+}
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canUserAccessBot, getSharedPrivateBotIdsForUser } from '@/lib/botVisibility'

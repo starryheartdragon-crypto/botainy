@@ -3,26 +3,12 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-type PersonaOption = {
-  id: string
-  name: string
-  description: string
-  avatar_url: string | null
-}
-
-interface PersonaPromptModalProps {
-  open: boolean
-  title?: string
-  onCancel: () => void
-  onConfirm: (personaId: string | null, relationship: string) => void
-}
-
 export function PersonaPromptModal({
   open,
   title = "Choose a Persona",
   onCancel,
   onConfirm,
-}: PersonaPromptModalProps) {
+}: PersonaPromptModalProps & { onCancel: () => void; onConfirm: (personaId: string | null, relationship: string) => void }) {
   const [personas, setPersonas] = useState<PersonaOption[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>("")
@@ -37,9 +23,7 @@ export function PersonaPromptModal({
     const load = async () => {
       setLoading(true)
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: { session }, } = await supabase.auth.getSession()
 
         if (!session?.access_token) {
           setPersonas([])
@@ -67,11 +51,11 @@ export function PersonaPromptModal({
     load()
   }, [open])
 
-  if (!open) return null
-  // Reset relationship input when modal opens/closes
   useEffect(() => {
     if (open) setRelationship("")
   }, [open])
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -156,3 +140,14 @@ export function PersonaPromptModal({
     </div>
   )
 }
+type PersonaOption = {
+  id: string
+  name: string
+  description: string
+  avatar_url: string | null
+}
+interface PersonaPromptModalProps {
+  open: boolean
+  title?: string
+}
+
