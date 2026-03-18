@@ -6,7 +6,7 @@ import {
   resolveOpenRouterModel,
   resolveOpenRouterReferer,
 } from '@/lib/openrouterServer'
-import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -28,6 +28,7 @@ type GroupChatContext = {
   persona_relationship_context: string | null
   dm_mode: 'user' | 'bot' | null
   dm_bot_id: string | null
+  is_nsfw: boolean
 }
 
 type GroupBot = {
@@ -369,6 +370,7 @@ async function generateBotReply({
   latestTriggerMessage: string
   botsById: Map<string, GroupBot>
   userPersona: UserPersona | null
+  // is_nsfw is read from group.is_nsfw
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
   if (!openrouterApiKey) {
@@ -382,15 +384,24 @@ async function generateBotReply({
 
   const personaLine = userPersona
     ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
-    : null
+    : 'The user is chatting as themselves.'
+
+  const criticalRules = [
+    '### **CRITICAL ROLEPLAY RULES**',
+    `- ALWAYS stay in character as ${bot.name}.`,
+    `- NEVER write dialogue, actions, or internal thoughts for ${userPersona?.name || 'the user'}.`,
+    '- Drive the narrative forward but leave room for the other participants to respond.',
+    '- Only produce your own in-character message. Do not narrate or speak for other characters.',
+  ].join('\n')
 
   const systemPrompt = [
-    `You are ${bot.name}.`,
-    bot.personality,
-    buildGroupModePrompt(group),
+    `You are ${bot.name}. ${bot.personality}`,
     personaLine,
+    buildContentRatingInstruction(group.is_nsfw),
+    buildGroupModePrompt(group),
+    criticalRules,
     ROLEPLAY_FORMATTING_INSTRUCTIONS,
-    'Only produce your own in-character message. Do not narrate other participants.',
+    ...(group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -538,6 +549,7 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
       typeof row.persona_relationship_context === 'string' ? row.persona_relationship_context : null,
     dm_mode: normalizedDmMode,
     dm_bot_id: typeof row.dm_bot_id === 'string' ? row.dm_bot_id : null,
+    is_nsfw: row.is_nsfw === true,
   }
 
   return { group, warning: null }

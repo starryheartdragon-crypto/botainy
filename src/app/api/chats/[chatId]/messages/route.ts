@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
-import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string }
@@ -9,6 +9,7 @@ type ChatWithRelations = {
   id: string
   user_id: string
   bot_id: string
+  is_nsfw: boolean | null
   bots: BotInfo | BotInfo[] | null
   personas: PersonaContext | PersonaContext[] | null
 }
@@ -145,7 +146,7 @@ export async function POST(
     // Verify user owns this chat and get bot personality
     const { data: chat, error: chatError } = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, bots(personality, name), personas(name, description)')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, bots(personality, name), personas(name, description)')
       .eq('id', chatId)
       .single()
 
@@ -226,13 +227,13 @@ export async function POST(
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
-      `### **Current Scene Participants**`,
-      `The following characters are currently present in this group chat: Lyarra Baratheon (User), Ser Dunk the Tall, Lyonel Baratheon, and Aerion Targaryen.`,
+      buildContentRatingInstruction(typedChat.is_nsfw ?? false),
       `### **CRITICAL ROLEPLAY RULES**`,
       `- ALWAYS stay in character as ${botInfo.name}.`,
       `- NEVER write dialogue, actions, or thoughts for ${personaContext?.name || 'the user'}.`,
       `- Drive the narrative forward but leave room for the user to respond.`,
       ROLEPLAY_FORMATTING_INSTRUCTIONS,
+      ...(typedChat.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')
