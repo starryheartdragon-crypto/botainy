@@ -27,27 +27,37 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { lastBotMessage, userDraft, persona } = body;
-    if (lastBotMessage === undefined || userDraft === undefined) {
-      return NextResponse.json({ error: 'Missing lastBotMessage or userDraft' }, { status: 400 });
+    if (typeof userDraft !== 'string' || userDraft.trim() === '') {
+      return NextResponse.json({ error: 'userDraft is required and must be non-empty' }, { status: 400 });
     }
+
+    // System prompt scoped strictly to draft completion
+    const systemPrompt = [
+      'You are a writing assistant. Your ONLY job is to complete the user\'s unfinished message.',
+      'Rules:',
+      '- Output ONLY the completed message text — the user\'s draft with a natural continuation appended.',
+      '- Do NOT output the bot\'s reply or any dialogue from any character other than the user.',
+      '- Do NOT add explanations, labels, quotation marks, or any text outside the completed message.',
+      '- If the draft is already complete as-is, output it unchanged.',
+    ].join('\n');
 
     // Construct prompt
     const personaContext = persona
-      ? `The user is roleplaying as ${persona.name}. ${persona.description ? persona.description : ''}`
-      : 'The user is chatting as themselves.';
+      ? `The user is roleplaying as ${persona.name}.${persona.description ? ' ' + persona.description : ''}`
+      : 'The user is writing as themselves.';
     const prompt = [
       personaContext,
       '',
-      'The bot just said:',
+      `For context, the bot's last message was:`,
       lastBotMessage || '(start of conversation)',
       '',
-      `The user has started typing their reply but has not finished it. Complete the user's message naturally, staying true to the user's voice and intent. Do NOT write the bot's response — only continue what the user has already written.`,
+      `The user has started typing their reply. Complete it naturally, preserving their voice and intent.`,
       '',
-      `User's draft: ${userDraft}`,
+      `User's draft to complete: ${userDraft}`,
     ].join('\n');
 
     // Call OpenRouter
-    const aiResponse = await callOpenRouter({ prompt });
+    const aiResponse = await callOpenRouter({ prompt, systemPrompt });
     if (!aiResponse) {
       return NextResponse.json({ error: 'AI completion failed' }, { status: 500 });
     }

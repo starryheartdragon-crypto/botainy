@@ -67,10 +67,20 @@ export function MessageInput({ onSendMessage, loading, onAiAssist }: MessageInpu
             title="AI Assist"
             onClick={async () => {
               if (aiLoading || loading) return;
+              // Nothing typed yet — nothing to complete
+              if (!input.trim()) return;
               setAiLoading(true);
               try {
                 const suggestion = await onAiAssist(input);
-                if (suggestion && suggestion.length > 0) setInput(suggestion);
+                // Only update the textarea if the AI returned something
+                // meaningful and different from what was already there
+                if (
+                  typeof suggestion === 'string' &&
+                  suggestion.trim().length > 0 &&
+                  suggestion.trim() !== input.trim()
+                ) {
+                  setInput(suggestion);
+                }
               } finally {
                 setAiLoading(false);
               }

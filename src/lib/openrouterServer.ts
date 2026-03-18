@@ -1,9 +1,9 @@
 import { sendChatMessageWithFallback } from './openrouter';
 
-export async function callOpenRouter({ prompt }: { prompt: string }) {
+export async function callOpenRouter({ prompt, systemPrompt }: { prompt: string; systemPrompt?: string }) {
   const request = {
     messages: [
-      { role: 'system' as const, content: 'You are an AI assistant helping users roleplay and answer questions in chat.' },
+      { role: 'system' as const, content: systemPrompt ?? 'You are an AI assistant helping users roleplay and answer questions in chat.' },
       { role: 'user' as const, content: prompt },
     ],
     temperature: 0.7,
