@@ -24,9 +24,9 @@ export default function CreateBotPage() {
   const [botPersonality, setBotPersonality] = useState("")
   const [botBackstory, setBotBackstory] = useState("")
   const [botGoals, setBotGoals] = useState("")
-  const [botScenario, setBotScenario] = useState("")
+  const [botGender, setBotGender] = useState("")
+  const [botAge, setBotAge] = useState("")
   const [botRules, setBotRules] = useState("")
-  const [botGreeting, setBotGreeting] = useState("")
   const [botStyle, setBotStyle] = useState("")
   const [botSecrets, setBotSecrets] = useState("")
   const [botPublishNow, setBotPublishNow] = useState(true)
@@ -344,6 +344,11 @@ export default function CreateBotPage() {
       return
     }
 
+    if (botAge.trim() && parseInt(botAge.trim(), 10) < 18) {
+      toast.error("Character age must be 18 or older")
+      return
+    }
+
     const valueOrNA = (value: string) => value.trim() || "N/A"
 
     let finalDescription = botDescription.trim()
@@ -361,10 +366,10 @@ export default function CreateBotPage() {
           `Core Personality: ${botPersonality.trim()}`,
           botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
           botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
-          botScenario.trim() ? `### **Roleplay Scenario**\n${botScenario.trim()}` : null,
+          botGender.trim() ? `Gender: ${botGender.trim()}` : null,
+          botAge.trim() ? `Age: ${botAge.trim()}` : null,
           botRules.trim() ? `### **Rules / Boundaries**\n${botRules.trim()}` : null,
           botStyle.trim() ? `### **Speaking Style**\n${botStyle.trim()}` : null,
-          botGreeting.trim() ? `### **First Message Hint**\n${botGreeting.trim()}` : null,
         ].filter(Boolean)
 
         finalDescription = botDescription.trim()
@@ -489,10 +494,10 @@ export default function CreateBotPage() {
         `Core Personality: ${botPersonality.trim()}`,
         botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
         botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
-        botScenario.trim() ? `### **Roleplay Scenario**\n${botScenario.trim()}` : null,
+        botGender.trim() ? `Gender: ${botGender.trim()}` : null,
+        botAge.trim() ? `Age: ${botAge.trim()}` : null,
         botRules.trim() ? `### **Rules / Boundaries**\n${botRules.trim()}` : null,
         botStyle.trim() ? `### **Speaking Style**\n${botStyle.trim()}` : null,
-        botGreeting.trim() ? `### **First Message Hint**\n${botGreeting.trim()}` : null,
       ].filter(Boolean)
 
       finalDescription = botDescription.trim()
@@ -538,9 +543,9 @@ export default function CreateBotPage() {
       setBotPersonality("")
       setBotBackstory("")
       setBotGoals("")
-      setBotScenario("")
+      setBotGender("")
+      setBotAge("")
       setBotRules("")
-      setBotGreeting("")
       setBotStyle("")
       setBotTtrpgRole("NPC")
 
@@ -978,28 +983,49 @@ export default function CreateBotPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-1.5">Goals / Motivations</label>
-                      <textarea
-                        value={botGoals}
-                        onChange={(e) => setBotGoals(e.target.value)}
-                        placeholder="What this character wants and what drives them..."
-                        className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Roleplay Scenario</label>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Goals / Motivations</label>
                     <textarea
-                      value={botScenario}
-                      onChange={(e) => setBotScenario(e.target.value)}
-                      placeholder="Default setting or scene this bot should naturally start from..."
+                      value={botGoals}
+                      onChange={(e) => setBotGoals(e.target.value)}
+                      placeholder="What this character wants and what drives them..."
                       className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                       rows={3}
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-1.5">Gender</label>
+                      <select
+                        value={botGender}
+                        onChange={(e) => setBotGender(e.target.value)}
+                        className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                      >
+                        <option value="">Select gender...</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Non-binary">Non-binary</option>
+                        <option value="Genderfluid">Genderfluid</option>
+                        <option value="Agender">Agender</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-1.5">
+                        Age <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={18}
+                        value={botAge}
+                        onChange={(e) => setBotAge(e.target.value)}
+                        placeholder="Must be 18 or older"
+                        className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Characters must be 18 or older.</p>
+                    </div>
                   </div>
 
                   <div>
@@ -1013,27 +1039,15 @@ export default function CreateBotPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-1.5">Speaking Style</label>
-                      <textarea
-                        value={botStyle}
-                        onChange={(e) => setBotStyle(e.target.value)}
-                        placeholder="Formal, poetic, sarcastic, short answers..."
-                        className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
-                        rows={3}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-1.5">First Message Hint</label>
-                      <textarea
-                        value={botGreeting}
-                        onChange={(e) => setBotGreeting(e.target.value)}
-                        placeholder="How should they greet the user?"
-                        className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
-                        rows={3}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Speaking Style</label>
+                    <textarea
+                      value={botStyle}
+                      onChange={(e) => setBotStyle(e.target.value)}
+                      placeholder="Formal, poetic, sarcastic, short answers..."
+                      className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      rows={3}
+                    />
                   </div>
                 </>
               )}

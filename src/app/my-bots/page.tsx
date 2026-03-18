@@ -31,10 +31,10 @@ type ParsedCharacterProfile = {
   personality: string
   backstory: string
   goals: string
-  scenario: string
+  gender: string
+  age: string
   rules: string
   style: string
-  greeting: string
 }
 
 function getTtrpgRole(bot: MyBot): "NPC" | "DM" | "PC" | "Encounter" | null {
@@ -57,10 +57,10 @@ function parseCharacterProfile(value: string): ParsedCharacterProfile {
     personality: value.trim(),
     backstory: "",
     goals: "",
-    scenario: "",
+    gender: "",
+    age: "",
     rules: "",
     style: "",
-    greeting: "",
   }
 
   const lines = value
@@ -78,10 +78,10 @@ function parseCharacterProfile(value: string): ParsedCharacterProfile {
     if (key === "core personality") parsed.personality = content
     else if (key === "backstory") parsed.backstory = content
     else if (key === "goals & motivations") parsed.goals = content
-    else if (key === "preferred scenario") parsed.scenario = content
+    else if (key === "gender") parsed.gender = content
+    else if (key === "age") parsed.age = content
     else if (key === "rules / boundaries") parsed.rules = content
     else if (key === "speaking style") parsed.style = content
-    else if (key === "suggested greeting") parsed.greeting = content
   }
 
   return parsed
@@ -105,10 +105,10 @@ export default function MyBotsPage() {
   const [editPersonality, setEditPersonality] = useState("")
   const [editBackstory, setEditBackstory] = useState("")
   const [editGoals, setEditGoals] = useState("")
-  const [editScenario, setEditScenario] = useState("")
+  const [editGender, setEditGender] = useState("")
+  const [editAge, setEditAge] = useState("")
   const [editRules, setEditRules] = useState("")
   const [editStyle, setEditStyle] = useState("")
-  const [editGreeting, setEditGreeting] = useState("")
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
 
   const loadBots = useCallback(async () => {
@@ -276,10 +276,10 @@ export default function MyBotsPage() {
     setEditPersonality(parsedProfile.personality)
     setEditBackstory(parsedProfile.backstory)
     setEditGoals(parsedProfile.goals)
-    setEditScenario(parsedProfile.scenario)
+    setEditGender(parsedProfile.gender)
+    setEditAge(parsedProfile.age)
     setEditRules(parsedProfile.rules)
     setEditStyle(parsedProfile.style)
-    setEditGreeting(parsedProfile.greeting)
     setEditAvatarUrl(bot.avatar_url)
   }
 
@@ -291,10 +291,10 @@ export default function MyBotsPage() {
     setEditPersonality("")
     setEditBackstory("")
     setEditGoals("")
-    setEditScenario("")
+    setEditGender("")
+    setEditAge("")
     setEditRules("")
     setEditStyle("")
-    setEditGreeting("")
     setEditAvatarUrl(null)
   }
 
@@ -349,6 +349,11 @@ export default function MyBotsPage() {
       return
     }
 
+    if (editAge.trim() && parseInt(editAge.trim(), 10) < 18) {
+      toast.error("Character age must be 18 or older")
+      return
+    }
+
     try {
       setSavingEditId(botId)
       const {
@@ -374,10 +379,10 @@ export default function MyBotsPage() {
           personality: editPersonality.trim(),
           backstory: editBackstory.trim(),
           goals: editGoals.trim(),
-          scenario: editScenario.trim(),
+          gender: editGender.trim(),
+          age: editAge.trim(),
           rules: editRules.trim(),
           style: editStyle.trim(),
-          greeting: editGreeting.trim(),
           avatarUrl: editAvatarUrl,
         }),
       })
@@ -626,13 +631,35 @@ export default function MyBotsPage() {
                       />
                     </div>
 
-                    <textarea
-                      value={editScenario}
-                      onChange={(e) => setEditScenario(e.target.value)}
-                      placeholder="Roleplay scenario"
-                      rows={3}
-                      className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Gender</label>
+                        <select
+                          value={editGender}
+                          onChange={(e) => setEditGender(e.target.value)}
+                          className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                        >
+                          <option value="">Select gender...</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Non-binary">Non-binary</option>
+                          <option value="Genderfluid">Genderfluid</option>
+                          <option value="Agender">Agender</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Age (18+)</label>
+                        <input
+                          type="number"
+                          min={18}
+                          value={editAge}
+                          onChange={(e) => setEditAge(e.target.value)}
+                          placeholder="Must be 18 or older"
+                          className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                        />
+                      </div>
+                    </div>
 
                     <textarea
                       value={editRules}
@@ -647,14 +674,6 @@ export default function MyBotsPage() {
                         value={editStyle}
                         onChange={(e) => setEditStyle(e.target.value)}
                         placeholder="Speaking style"
-                        rows={3}
-                        className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
-                      />
-
-                      <textarea
-                        value={editGreeting}
-                        onChange={(e) => setEditGreeting(e.target.value)}
-                        placeholder="First message hint"
                         rows={3}
                         className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                       />

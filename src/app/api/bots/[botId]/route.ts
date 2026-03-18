@@ -12,10 +12,10 @@ type UpdateBotPayload = {
   personality?: string
   backstory?: string
   goals?: string
-  scenario?: string
+  gender?: string
+  age?: string
   rules?: string
   style?: string
-  greeting?: string
   characterProfile?: string
   universe?: string
   avatarUrl?: string | null
@@ -95,10 +95,10 @@ export async function PATCH(
       'personality',
       'backstory',
       'goals',
-      'scenario',
+      'gender',
+      'age',
       'rules',
       'style',
-      'greeting',
       'characterProfile',
     ].some((field) => Object.prototype.hasOwnProperty.call(body, field))
 
@@ -106,10 +106,10 @@ export async function PATCH(
       const personality = typeof body.personality === 'string' ? body.personality.trim() : undefined
       const backstory = typeof body.backstory === 'string' ? body.backstory.trim() : undefined
       const goals = typeof body.goals === 'string' ? body.goals.trim() : undefined
-      const scenario = typeof body.scenario === 'string' ? body.scenario.trim() : undefined
+      const gender = typeof body.gender === 'string' ? body.gender.trim() : undefined
+      const age = typeof body.age === 'string' ? body.age.trim() : undefined
       const rules = typeof body.rules === 'string' ? body.rules.trim() : undefined
       const style = typeof body.style === 'string' ? body.style.trim() : undefined
-      const greeting = typeof body.greeting === 'string' ? body.greeting.trim() : undefined
       const characterProfile =
         typeof body.characterProfile === 'string' ? body.characterProfile.trim() : undefined
 
@@ -117,14 +117,18 @@ export async function PATCH(
         return NextResponse.json({ error: 'Bot personality cannot be empty' }, { status: 400 })
       }
 
+      if (age !== undefined && age !== '' && parseInt(age, 10) < 18) {
+        return NextResponse.json({ error: 'Character age must be 18 or older' }, { status: 400 })
+      }
+
       const personalitySections = [
         personality ? `Core Personality: ${personality}` : null,
         backstory ? `Backstory: ${backstory}` : null,
         goals ? `Goals & Motivations: ${goals}` : null,
-        scenario ? `Preferred Scenario: ${scenario}` : null,
+        gender ? `Gender: ${gender}` : null,
+        age ? `Age: ${age}` : null,
         rules ? `Rules / Boundaries: ${rules}` : null,
         style ? `Speaking Style: ${style}` : null,
-        greeting ? `Suggested Greeting: ${greeting}` : null,
       ].filter(Boolean)
 
       const finalPersonality =
