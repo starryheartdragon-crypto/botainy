@@ -59,8 +59,30 @@ export async function sendChatMessage(
   }
 }
 
+/** Primary model used for all AI completions. */
+export const PRIMARY_MODEL = process.env.OPENROUTER_MODEL || 'openrouter/hunter-alpha'
+
+/** Fallback model used when the primary model fails. */
+export const FALLBACK_MODEL = process.env.OPENROUTER_FALLBACK_MODEL || 'openai/gpt-4-turbo'
+
+/**
+ * Attempts the completion with PRIMARY_MODEL first.
+ * On any error, transparently retries with FALLBACK_MODEL.
+ */
+export async function sendChatMessageWithFallback(
+  request: Omit<ChatCompletionRequest, 'model'>
+): Promise<ChatCompletionResponse> {
+  try {
+    return await sendChatMessage({ ...request, model: PRIMARY_MODEL })
+  } catch (primaryError) {
+    console.warn('Primary model failed, falling back to', FALLBACK_MODEL, primaryError)
+    return await sendChatMessage({ ...request, model: FALLBACK_MODEL })
+  }
+}
+
 export const AVAILABLE_MODELS = [
-  'openai/gpt-4-turbo',
+  PRIMARY_MODEL,
+  FALLBACK_MODEL,
   'openai/gpt-4',
   'openai/gpt-3.5-turbo',
   'anthropic/claude-3-opus',

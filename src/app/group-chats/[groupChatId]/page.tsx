@@ -110,9 +110,8 @@ export default function GroupChatDetailPage() {
     if (messages.length < 15) return
     try {
       const storyPrompt = `Summarize the following group chat as a story:\n\n${messages.slice(-15).map(m => `${m.sender_id === userId ? 'User' : m.sender_name || 'Bot'}: ${m.content}`).join('\n')}`
-      const { sendChatMessage } = await import('@/lib/openrouter')
-      const response = await sendChatMessage({
-        model: 'openai/gpt-4-turbo',
+      const { sendChatMessageWithFallback } = await import('@/lib/openrouter')
+      const response = await sendChatMessageWithFallback({
         messages: [
           { role: 'system', content: 'You are a creative storyteller. Summarize the group chat as a story.' },
           { role: 'user', content: storyPrompt }

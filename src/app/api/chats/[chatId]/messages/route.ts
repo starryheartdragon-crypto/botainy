@@ -293,6 +293,43 @@ export async function POST(
         openrouterFailureReason = getErrorMessage(openrouterError, 'OpenRouter request failed')
         console.error('OpenRouter request failed:', openrouterFailureReason)
       }
+
+      // Fallback to OPENROUTER_FALLBACK_MODEL if primary model failed
+      if (!botResponseContent) {
+        const fallbackModel = process.env.OPENROUTER_FALLBACK_MODEL || 'openai/gpt-4-turbo'
+        console.warn(`Primary model (${openrouterModel}) failed, retrying with fallback (${fallbackModel})`)
+        try {
+          const fallbackResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${openrouterApiKey}`,
+              'HTTP-Referer': resolveOpenRouterReferer(),
+              'X-Title': 'Botainy',
+            },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...messageHistory,
+              ],
+              model: fallbackModel,
+              temperature: 0.85,
+              frequency_penalty: 0.4,
+              presence_penalty: 0.4,
+            }),
+          })
+          const fallbackData: OpenRouterResponse | null = await fallbackResp.json().catch(() => null)
+          if (fallbackResp.ok) {
+            botResponseContent = fallbackData?.choices?.[0]?.message?.content?.trim() || null
+            if (botResponseContent) {
+              openrouterFailureReason = null
+              openrouterFailureStatus = null
+            }
+          }
+        } catch (fallbackError) {
+          console.error('Fallback model also failed:', fallbackError)
+        }
+      }
     }
 
     if (!botResponseContent) {

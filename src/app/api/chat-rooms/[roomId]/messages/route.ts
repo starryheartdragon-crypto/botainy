@@ -68,30 +68,38 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
 
     // OpenRouter API call
     const openrouterApiKey = process.env.OPENROUTER_API_KEY
-    const openrouterModel = 'openrouter/auto'
+    const primaryModel = process.env.OPENROUTER_MODEL || 'openrouter/hunter-alpha'
+    const fallbackModel = process.env.OPENROUTER_FALLBACK_MODEL || 'openai/gpt-4-turbo'
     if (!openrouterApiKey) {
       return NextResponse.json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 })
     }
 
-    const openrouterResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${openrouterApiKey}`,
-        'HTTP-Referer': 'https://botainy.com',
-        'X-Title': 'Botainy',
-      },
-      body: JSON.stringify({
-        model: openrouterModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messageHistory,
-        ],
-        temperature: 0.85,
-        frequency_penalty: 0.4,
-        presence_penalty: 0.4,
-      }),
-    })
+    const makeOpenRouterCall = async (model: string) =>
+      fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openrouterApiKey}`,
+          'HTTP-Referer': 'https://botainy.com',
+          'X-Title': 'Botainy',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messageHistory,
+          ],
+          temperature: 0.85,
+          frequency_penalty: 0.4,
+          presence_penalty: 0.4,
+        }),
+      })
+
+    let openrouterResp = await makeOpenRouterCall(primaryModel)
+    if (!openrouterResp.ok) {
+      console.warn(`Primary model (${primaryModel}) failed, retrying with fallback (${fallbackModel})`)
+      openrouterResp = await makeOpenRouterCall(fallbackModel)
+    }
 
     const openrouterData = await openrouterResp.json().catch(() => null)
     if (!openrouterResp.ok) {

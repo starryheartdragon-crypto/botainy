@@ -123,9 +123,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     setLoading(true);
     try {
       const storyPrompt = `Summarize the following chat as a story:\n\n${messages.slice(-15).map(m => `${m.senderId === userId ? 'User' : 'Bot'}: ${m.content}`).join('\n')}`;
-      const { sendChatMessage } = await import('@/lib/openrouter');
-      const response = await sendChatMessage({
-        model: 'openai/gpt-4-turbo',
+      const { sendChatMessageWithFallback } = await import('@/lib/openrouter');
+      const response = await sendChatMessageWithFallback({
         messages: [
           { role: 'system', content: 'You are a creative storyteller. Summarize the chat as a story.' },
           { role: 'user', content: storyPrompt }
