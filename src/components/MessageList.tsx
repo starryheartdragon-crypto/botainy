@@ -16,7 +16,7 @@ interface MessageListProps {
   onDeleteMessage?: (messageId: string) => Promise<void>
 }
 
-function FormattedText({ text }: { text: string }) {
+export function FormattedText({ text }: { text: string }) {
   const parts: React.ReactNode[] = []
   const pattern = /(\*\*([\s\S]+?)\*\*|\*([\s\S]+?)\*)/g
   let lastIndex = 0

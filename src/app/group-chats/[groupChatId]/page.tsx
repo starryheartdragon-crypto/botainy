@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PersonaSelector } from '@/components/PersonaSelector'
+import { FormattedText } from '@/components/MessageList'
 
 interface GroupMessage {
   id: string
@@ -443,7 +444,7 @@ export default function GroupChatDetailPage() {
                       {message.sender_name}
                     </p>
                   ) : null}
-                  <p className="break-words">{message.content}</p>
+                  <p className="break-words whitespace-pre-wrap"><FormattedText text={message.content} /></p>
                   <p className="text-[10px] text-gray-300 mt-1">
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
