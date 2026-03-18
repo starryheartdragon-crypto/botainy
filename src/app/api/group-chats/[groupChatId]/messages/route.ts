@@ -152,7 +152,10 @@ function buildGroupModePrompt(group: GroupChatContext) {
       group.persona_relationship_context
         ? `Relationship map to user persona: ${group.persona_relationship_context}`
         : null,
-      'Keep replies immersive, scene-aware, and concise.',
+      '### **GROUP DYNAMICS (CRITICAL)**',
+      '- Stay fully in-character as your character at all times.',
+      '- If a character is explicitly speaking to someone else, do not hijack the conversation. You may react physically (use *asterisks*) or observe, but leave room for the addressed character to respond.',
+      '- ALL responses MUST use roleplay prose format: spoken words in quotation marks, physical actions and sensory details wrapped in *asterisks*. This is mandatory regardless of prior messages in the history.',
     ]
       .filter(Boolean)
       .join('\n')
@@ -167,8 +170,9 @@ function buildGroupModePrompt(group: GroupChatContext) {
         ? `Relationship map to user persona: ${group.persona_relationship_context}`
         : null,
       '### **GROUP DYNAMICS (CRITICAL)**',
-      '- Stay in-character and respond naturally to the latest turn.',
-      '- If a character is explicitly speaking to someone else, do not hijack the conversation. You may react physically or observe, but do not interrupt their dialogue.',
+      '- Stay fully in-character as your character at all times.',
+      '- If a character is explicitly speaking to someone else, do not hijack the conversation. You may react physically (use *asterisks*) or observe, but leave room for the addressed character to respond.',
+      '- ALL responses MUST use roleplay prose format: spoken words in quotation marks, physical actions and sensory details wrapped in *asterisks*. This is mandatory regardless of prior messages in the history.',
     ]
       .filter(Boolean)
       .join('\n')
@@ -386,22 +390,27 @@ async function generateBotReply({
     ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
     : 'The user is chatting as themselves.'
 
-  const criticalRules = [
-    '### **CRITICAL ROLEPLAY RULES**',
-    `- ALWAYS stay in character as ${bot.name}.`,
-    `- NEVER write dialogue, actions, or internal thoughts for ${userPersona?.name || 'the user'}.`,
-    '- Drive the narrative forward but leave room for the other participants to respond.',
-    '- Only produce your own in-character message. Do not narrate or speak for other characters.',
-  ].join('\n')
+  const isRoleplayMode = group.group_type === 'roleplay' || group.group_type === 'ttrpg'
+
+  const criticalRules = isRoleplayMode
+    ? [
+        '### **CRITICAL ROLEPLAY RULES**',
+        `- ALWAYS stay in character as ${bot.name}. Never break character or acknowledge being an AI.`,
+        `- NEVER write dialogue, actions, or internal thoughts for ${userPersona?.name || 'the user'} — only control your own character.`,
+        '- Drive the scene forward with your own immersive response, then leave an opening for others to react.',
+        '- Only produce your own in-character message. Do not narrate or speak for other characters.',
+      ].join('\n')
+    : null
 
   const systemPrompt = [
     `You are ${bot.name}. ${bot.personality}`,
     personaLine,
     buildContentRatingInstruction(group.is_nsfw),
+    isRoleplayMode ? ROLEPLAY_FORMATTING_INSTRUCTIONS : null,
+    ...(isRoleplayMode && group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
     buildGroupModePrompt(group),
     criticalRules,
-    ROLEPLAY_FORMATTING_INSTRUCTIONS,
-    ...(group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
+    ...(!isRoleplayMode && group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
   ]
     .filter(Boolean)
     .join('\n\n')
