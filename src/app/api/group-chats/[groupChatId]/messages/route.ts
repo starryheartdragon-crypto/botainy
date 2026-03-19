@@ -448,7 +448,7 @@ async function generateBotReply({
           { role: 'system', content: systemPrompt },
           ...messageHistory,
         ],
-        temperature: 0.85,
+        temperature: 0.92,
         frequency_penalty: 0.4,
         presence_penalty: 0.4,
       }),

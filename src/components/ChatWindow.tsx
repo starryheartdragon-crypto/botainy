@@ -31,6 +31,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
   const [personaName, setPersonaName] = useState<string | null>(null)
+  const [relationshipContext, setRelationshipContext] = useState<string>('')
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [apiTemperature, setApiTemperature] = useState(0.7)
@@ -48,6 +49,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         if (resp.ok) {
           const data = await resp.json()
           setIsNsfw(!!data.is_nsfw)
+          setRelationshipContext(data.relationship_context ?? '')
         }
       } catch {}
     }
@@ -73,6 +75,20 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       toast.error('Failed to update NSFW setting')
     } finally {
       setSavingNsfw(false)
+    }
+  }
+
+  // Save relationship context on blur
+  const handleRelationshipSave = async (value: string) => {
+    try {
+      const headers = await getAuthHeaders(true)
+      await fetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ relationship_context: value.trim() || null }),
+      })
+    } catch {
+      // non-critical
     }
   }
 
@@ -465,6 +481,9 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       <PersonaSelector
         selectedPersonaId={selectedPersonaId}
         onSelectPersona={setSelectedPersonaId}
+        relationshipContext={relationshipContext}
+        onRelationshipChange={setRelationshipContext}
+        onRelationshipSave={handleRelationshipSave}
       />
 
       {/* Messages */}

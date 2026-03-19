@@ -61,8 +61,13 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 mt-20 py-8 bg-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400 space-y-2">
           <p>&copy; 2026 Botainy. Built with Next.js + Supabase. For 18+ users only.</p>
+          <p>
+            <Link href="/donate" className="text-yellow-400 hover:text-yellow-300 transition font-medium">
+              ☕ Support Botainy
+            </Link>
+          </p>
         </div>
       </footer>
     </div>

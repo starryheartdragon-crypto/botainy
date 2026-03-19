@@ -10,6 +10,7 @@ type ChatWithRelations = {
   user_id: string
   bot_id: string
   is_nsfw: boolean | null
+  relationship_context: string | null
   bots: BotInfo | BotInfo[] | null
   personas: PersonaContext | PersonaContext[] | null
 }
@@ -146,7 +147,7 @@ export async function POST(
     // Verify user owns this chat and get bot personality
     const { data: chat, error: chatError } = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, bots(personality, name), personas(name, description)')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, bots(personality, name), personas(name, description)')
       .eq('id', chatId)
       .single()
 
@@ -224,9 +225,21 @@ export async function POST(
     const personaPrompt = personaContext
       ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
+
+    const relationshipBlock = (() => {
+      const rel = typedChat.relationship_context?.trim()
+      if (!rel || !personaContext) return null
+      return [
+        `### **YOUR RELATIONSHIP WITH ${personaContext.name.toUpperCase()}**`,
+        rel,
+        `This is the emotional truth of how you feel about ${personaContext.name}. Do NOT state it plainly or announce it — embody it. Let it bleed through every glance, every pause, every word chosen or bitten back. Your actions and dialogue must be shaped by these feelings at all times, whether you want them to be or not.`,
+      ].join('\n')
+    })()
+
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
+      ...(relationshipBlock ? [relationshipBlock] : []),
       buildContentRatingInstruction(typedChat.is_nsfw ?? false),
       `### **CRITICAL ROLEPLAY RULES**`,
       `- ALWAYS stay in character as ${botInfo.name}.`,
@@ -260,9 +273,9 @@ export async function POST(
               ...messageHistory,
             ],
             model: openrouterModel,
-            temperature: 0.85,          // Slightly higher creativity (standard is often 0.7)
+            temperature: 0.92,          // Higher expressiveness for emotional/romantic scenes
             frequency_penalty: 0.4,     // Penalizes the bot for using the exact same words repeatedly
-            presence_penalty: 0.4,      // Encourages the bot to introduce new concepts and actions
+            presence_penalty: 0.5,      // Encourages new concepts, feelings, and actions each turn
           }),
         })
 
@@ -313,9 +326,9 @@ export async function POST(
                 ...messageHistory,
               ],
               model: fallbackModel,
-              temperature: 0.85,
+              temperature: 0.92,
               frequency_penalty: 0.4,
-              presence_penalty: 0.4,
+              presence_penalty: 0.5,
             }),
           })
           const fallbackData: OpenRouterResponse | null = await fallbackResp.json().catch(() => null)

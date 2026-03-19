@@ -229,6 +229,7 @@ export default function DropdownMenu() {
     { href: "/explore", label: "Explore", icon: "compass" },
     { href: "/chat-rooms", label: "Chat Rooms", icon: "chat" },
     ...(isAdmin ? [{ href: "/admin", label: "Admin Page", icon: "shield" as const }] : []),
+    { href: "/donate", label: "☕ Support Botainy", icon: "sparkles" },
     user
       ? { href: "#", label: "Sign Out", icon: "logout", action: "signout" }
       : { href: "/login", label: "Sign In", icon: "login" },

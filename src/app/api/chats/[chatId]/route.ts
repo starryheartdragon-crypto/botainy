@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -81,6 +81,7 @@ export async function GET(
       bot_id: string
       persona_id?: string | null
       is_nsfw?: boolean
+      relationship_context?: string | null
       created_at?: string
       updated_at?: string
     } | null = null
@@ -141,6 +142,7 @@ export async function GET(
       bot_id: chat.bot_id,
       persona_id: chat.persona_id ?? null,
       is_nsfw: chat.is_nsfw ?? false,
+      relationship_context: chat.relationship_context ?? null,
       bot: safeBot,
     })
   } catch (err: unknown) {
@@ -214,10 +216,23 @@ export async function PATCH(
     const { serviceClient } = getSupabaseClients()
 
     const body = await req.json()
-    const { is_nsfw } = body
+    const { is_nsfw, relationship_context } = body
 
-    if (typeof is_nsfw !== 'boolean') {
-      return NextResponse.json({ error: 'is_nsfw must be a boolean' }, { status: 400 })
+    const updates: Record<string, unknown> = {}
+
+    if (typeof is_nsfw === 'boolean') {
+      updates.is_nsfw = is_nsfw
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'relationship_context')) {
+      // Allow null or string; reject anything else
+      if (relationship_context !== null && typeof relationship_context !== 'string') {
+        return NextResponse.json({ error: 'relationship_context must be a string or null' }, { status: 400 })
+      }
+      updates.relationship_context = relationship_context ?? null
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
     }
 
     const { data: chat, error: chatError } = await serviceClient
@@ -237,7 +252,7 @@ export async function PATCH(
 
     const { error: updateError } = await serviceClient
       .from('chats')
-      .update({ is_nsfw })
+      .update(updates)
       .eq('id', chatId)
       .eq('user_id', user.id)
 
@@ -245,7 +260,7 @@ export async function PATCH(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, is_nsfw })
+    return NextResponse.json({ ok: true, ...updates })
   } catch (err: unknown) {
     return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 })
   }
