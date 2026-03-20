@@ -29,6 +29,7 @@ type GroupChatContext = {
   dm_mode: 'user' | 'bot' | null
   dm_bot_id: string | null
   is_nsfw: boolean
+  api_temperature: number
 }
 
 type GroupBot = {
@@ -448,7 +449,7 @@ async function generateBotReply({
           { role: 'system', content: systemPrompt },
           ...messageHistory,
         ],
-        temperature: 0.92,
+        temperature: group.api_temperature,
         frequency_penalty: 0.4,
         presence_penalty: 0.4,
       }),
@@ -559,6 +560,7 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
     dm_mode: normalizedDmMode,
     dm_bot_id: typeof row.dm_bot_id === 'string' ? row.dm_bot_id : null,
     is_nsfw: row.is_nsfw === true,
+    api_temperature: typeof row.api_temperature === 'number' ? row.api_temperature : 0.92,
   }
 
   return { group, warning: null }

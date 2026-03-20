@@ -34,7 +34,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [relationshipContext, setRelationshipContext] = useState<string>('')
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
-  const [apiTemperature, setApiTemperature] = useState(0.7)
+  const [apiTemperature, setApiTemperature] = useState(0.9)
+  const [savingSettings, setSavingSettings] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   // NSFW toggle state
   const { user } = useAuthStore()
@@ -50,6 +51,9 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
           const data = await resp.json()
           setIsNsfw(!!data.is_nsfw)
           setRelationshipContext(data.relationship_context ?? '')
+          if (typeof data.api_temperature === 'number') {
+            setApiTemperature(data.api_temperature)
+          }
         }
       } catch {}
     }
@@ -176,7 +180,29 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     }
   };
 
-  const handleCloseSettings = () => setSettingsModalOpen(false);
+  const handleCloseSettings = () => setSettingsModalOpen(false)
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    try {
+      const headers = await getAuthHeaders(true)
+      const resp = await fetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ api_temperature: apiTemperature }),
+      })
+      if (resp.ok) {
+        toast.success('Settings saved!')
+        setSettingsModalOpen(false)
+      } else {
+        toast.error('Failed to save settings')
+      }
+    } catch {
+      toast.error('Failed to save settings')
+    } finally {
+      setSavingSettings(false)
+    }
+  };
 
   const fetchAiTracks = () => {
     setAiTracks([
@@ -481,6 +507,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       <PersonaSelector
         selectedPersonaId={selectedPersonaId}
         onSelectPersona={setSelectedPersonaId}
+        botName={bot.name}
         relationshipContext={relationshipContext}
         onRelationshipChange={setRelationshipContext}
         onRelationshipSave={handleRelationshipSave}
@@ -595,7 +622,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={handleCloseSettings}>Cancel</button>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => {/* Save logic here */}}>Save</button>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60" onClick={handleSaveSettings} disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
         </div>

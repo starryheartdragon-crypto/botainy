@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BOT_UNIVERSES } from '@/lib/botUniverses';
+import { BOT_UNIVERSES, UNIVERSE_CATEGORIES } from '@/lib/botUniverses';
 
 interface ChatRoom {
   id: string;
@@ -63,8 +63,12 @@ function AdminChatRoomEditor({ room, token, onSave }: AdminChatRoomEditorProps) 
         <input name="notable_bots" value={form.notable_bots} onChange={handleChange} placeholder="Notable Bots" className="w-full border p-2 rounded" />
         <select name="universe" value={form.universe} onChange={handleChange} className="w-full border p-2 rounded">
           <option value="">Select universe</option>
-          {BOT_UNIVERSES.map(u => (
-            <option key={u} value={u}>{u}</option>
+          {Object.entries(UNIVERSE_CATEGORIES).map(([genre, universes]) => (
+            <optgroup key={genre} label={genre}>
+              {universes.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

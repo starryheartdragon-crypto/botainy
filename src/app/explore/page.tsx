@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import { BOT_UNIVERSES } from "@/lib/botUniverses"
+import { BOT_UNIVERSES, UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { PersonaPromptModal } from "@/components/PersonaPromptModal"
 
 type RelationStatus = "none" | "pending_incoming" | "pending_outgoing" | "connected"
@@ -874,10 +874,14 @@ export default function ExplorePage() {
             className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
           >
             <option value="">All universes</option>
-            {BOT_UNIVERSES.map((universe) => (
-              <option key={universe} value={universe}>
-                {universe}
-              </option>
+            {Object.entries(UNIVERSE_CATEGORIES).map(([genre, universes]) => (
+              <optgroup key={genre} label={genre}>
+                {universes.map((universe) => (
+                  <option key={universe} value={universe}>
+                    {universe}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

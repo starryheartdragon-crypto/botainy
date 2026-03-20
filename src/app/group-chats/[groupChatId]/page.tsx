@@ -45,6 +45,7 @@ export default function GroupChatDetailPage() {
   // Settings modal state
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [apiTemperature, setApiTemperature] = useState(1.0)
+  const [savingSettings, setSavingSettings] = useState(false)
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
 
@@ -64,6 +65,9 @@ export default function GroupChatDetailPage() {
         if (resp.ok) {
           const data = await resp.json()
           setIsNsfw(!!data.is_nsfw)
+          if (typeof data.api_temperature === 'number') {
+            setApiTemperature(data.api_temperature)
+          }
         }
       } catch {}
     }
@@ -100,6 +104,32 @@ export default function GroupChatDetailPage() {
   const handleCopySummary = () => {
     navigator.clipboard.writeText(summaryText)
     alert('Summary copied!')
+  }
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const resp = await fetch(`/api/group-chats/${groupChatId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ api_temperature: apiTemperature }),
+      })
+      if (resp.ok) {
+        alert('Settings saved!')
+        setSettingsOpen(false)
+      } else {
+        alert('Failed to save settings')
+      }
+    } catch {
+      alert('Failed to save settings')
+    } finally {
+      setSavingSettings(false)
+    }
   }
 
   const handleNewChat = () => {
@@ -520,6 +550,10 @@ export default function GroupChatDetailPage() {
                 <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
                 <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
               </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={() => setSettingsOpen(false)}>Cancel</button>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60" onClick={handleSaveSettings} disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save'}</button>
             </div>
           </div>
         </div>

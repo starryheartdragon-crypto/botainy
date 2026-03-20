@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -82,6 +82,7 @@ export async function GET(
       persona_id?: string | null
       is_nsfw?: boolean
       relationship_context?: string | null
+      api_temperature?: number | null
       created_at?: string
       updated_at?: string
     } | null = null
@@ -143,6 +144,7 @@ export async function GET(
       persona_id: chat.persona_id ?? null,
       is_nsfw: chat.is_nsfw ?? false,
       relationship_context: chat.relationship_context ?? null,
+      api_temperature: chat.api_temperature ?? 0.9,
       bot: safeBot,
     })
   } catch (err: unknown) {
@@ -216,7 +218,7 @@ export async function PATCH(
     const { serviceClient } = getSupabaseClients()
 
     const body = await req.json()
-    const { is_nsfw, relationship_context } = body
+    const { is_nsfw, relationship_context, api_temperature } = body
 
     const updates: Record<string, unknown> = {}
 
@@ -229,6 +231,12 @@ export async function PATCH(
         return NextResponse.json({ error: 'relationship_context must be a string or null' }, { status: 400 })
       }
       updates.relationship_context = relationship_context ?? null
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'api_temperature')) {
+      if (typeof api_temperature !== 'number' || api_temperature < 0 || api_temperature > 2) {
+        return NextResponse.json({ error: 'api_temperature must be a number between 0 and 2' }, { status: 400 })
+      }
+      updates.api_temperature = api_temperature
     }
 
     if (Object.keys(updates).length === 0) {

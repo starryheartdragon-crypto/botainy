@@ -3,7 +3,7 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-import { BOT_UNIVERSES } from "@/lib/botUniverses"
+import { BOT_UNIVERSES, UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
 
 type MyBot = {
@@ -454,10 +454,14 @@ export default function MyBotsPage() {
             className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
           >
             <option value="">All universes</option>
-            {BOT_UNIVERSES.map((universe) => (
-              <option key={universe} value={universe}>
-                {universe}
-              </option>
+            {Object.entries(UNIVERSE_CATEGORIES).map(([genre, universes]) => (
+              <optgroup key={genre} label={genre}>
+                {universes.map((universe) => (
+                  <option key={universe} value={universe}>
+                    {universe}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -555,10 +559,14 @@ export default function MyBotsPage() {
                       <option value="" disabled>
                         Select a universe
                       </option>
-                      {BOT_UNIVERSES.map((universe) => (
-                        <option key={universe} value={universe}>
-                          {universe}
-                        </option>
+                      {Object.entries(UNIVERSE_CATEGORIES).map(([genre, universes]) => (
+                        <optgroup key={genre} label={genre}>
+                          {universes.map((universe) => (
+                            <option key={universe} value={universe}>
+                              {universe}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
 

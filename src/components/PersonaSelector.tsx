@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 interface PersonaSelectorProps {
   onSelectPersona: (personaId: string | null) => void
   selectedPersonaId?: string | null
+  botName?: string
   relationshipContext?: string | null
   onRelationshipChange?: (value: string) => void
   onRelationshipSave?: (value: string) => void
@@ -15,6 +16,7 @@ interface PersonaSelectorProps {
 export function PersonaSelector({
   onSelectPersona,
   selectedPersonaId,
+  botName,
   relationshipContext,
   onRelationshipChange,
   onRelationshipSave,
@@ -84,7 +86,7 @@ export function PersonaSelector({
       {selectedPersonaId && (
         <div className="px-4 pb-4">
           <label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wide">
-            Relationship context <span className="normal-case font-normal text-gray-500">(how {bot(personas, selectedPersonaId)} relates to your persona)</span>
+            Relationship context <span className="normal-case font-normal text-gray-500">(how {botName ?? 'the bot'} feels about your persona)</span>
           </label>
           <textarea
             ref={relRef}
@@ -101,9 +103,4 @@ export function PersonaSelector({
       )}
     </div>
   )
-}
-
-function bot(personas: Persona[], selectedId: string | null | undefined): string {
-  const found = personas.find((p) => p.id === selectedId)
-  return found ? found.name : 'the bot'
 }

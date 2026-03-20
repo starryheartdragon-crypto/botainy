@@ -11,6 +11,7 @@ type ChatWithRelations = {
   bot_id: string
   is_nsfw: boolean | null
   relationship_context: string | null
+  api_temperature: number | null
   bots: BotInfo | BotInfo[] | null
   personas: PersonaContext | PersonaContext[] | null
 }
@@ -147,7 +148,7 @@ export async function POST(
     // Verify user owns this chat and get bot personality
     const { data: chat, error: chatError } = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, bots(personality, name), personas(name, description)')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, bots(personality, name), personas(name, description)')
       .eq('id', chatId)
       .single()
 
@@ -250,6 +251,7 @@ export async function POST(
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')
+    const chatTemperature = typeof typedChat.api_temperature === 'number' ? typedChat.api_temperature : 0.92
     let botResponseContent: string | null = null
     let openrouterFailureReason: string | null = null
     let openrouterFailureStatus: number | null = null
@@ -273,7 +275,7 @@ export async function POST(
               ...messageHistory,
             ],
             model: openrouterModel,
-            temperature: 0.92,          // Higher expressiveness for emotional/romantic scenes
+            temperature: chatTemperature,          // Per-chat temperature from settings
             frequency_penalty: 0.4,     // Penalizes the bot for using the exact same words repeatedly
             presence_penalty: 0.5,      // Encourages new concepts, feelings, and actions each turn
           }),
@@ -326,7 +328,7 @@ export async function POST(
                 ...messageHistory,
               ],
               model: fallbackModel,
-              temperature: 0.92,
+              temperature: chatTemperature,
               frequency_penalty: 0.4,
               presence_penalty: 0.5,
             }),

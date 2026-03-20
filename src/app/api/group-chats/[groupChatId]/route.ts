@@ -37,7 +37,7 @@ export async function GET(
 
     const { data: group, error } = await serviceClient()
       .from('group_chats')
-      .select('id, name, description, creator_id, is_nsfw, created_at, updated_at')
+      .select('id, name, description, creator_id, is_nsfw, api_temperature, created_at, updated_at')
       .eq('id', groupChatId)
       .maybeSingle()
 
@@ -69,10 +69,26 @@ export async function PATCH(
 
     const { groupChatId } = await params
     const body = await req.json()
-    const { is_nsfw } = body
+    const { is_nsfw, api_temperature } = body
 
-    if (typeof is_nsfw !== 'boolean') {
-      return NextResponse.json({ error: 'is_nsfw must be a boolean' }, { status: 400 })
+    const updates: Record<string, unknown> = {}
+
+    if (Object.prototype.hasOwnProperty.call(body, 'is_nsfw')) {
+      if (typeof is_nsfw !== 'boolean') {
+        return NextResponse.json({ error: 'is_nsfw must be a boolean' }, { status: 400 })
+      }
+      updates.is_nsfw = is_nsfw
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'api_temperature')) {
+      if (typeof api_temperature !== 'number' || api_temperature < 0 || api_temperature > 2) {
+        return NextResponse.json({ error: 'api_temperature must be a number between 0 and 2' }, { status: 400 })
+      }
+      updates.api_temperature = api_temperature
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
     }
 
     // Verify user is a member of this group chat
@@ -93,14 +109,14 @@ export async function PATCH(
 
     const { error: updateError } = await serviceClient()
       .from('group_chats')
-      .update({ is_nsfw })
+      .update(updates)
       .eq('id', groupChatId)
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, is_nsfw })
+    return NextResponse.json({ ok: true, ...updates })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })

@@ -5,7 +5,7 @@ import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import Cropper, { Area } from "react-easy-crop"
-import { BOT_UNIVERSES } from "@/lib/botUniverses"
+import { UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
 
 export default function CreateBotPage() {
@@ -914,10 +914,14 @@ export default function CreateBotPage() {
                   <option value="" disabled>
                     Select a universe
                   </option>
-                  {BOT_UNIVERSES.map((universe) => (
-                    <option key={universe} value={universe}>
-                      {universe}
-                    </option>
+                  {Object.entries(UNIVERSE_CATEGORIES).map(([genre, universes]) => (
+                    <optgroup key={genre} label={genre}>
+                      {universes.map((universe) => (
+                        <option key={universe} value={universe}>
+                          {universe}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
