@@ -15,9 +15,18 @@
     "deploy:preview": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env preview",
     "deploy:production": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:ios": "npx cap open ios",
+    "cap:run:android": "npx cap run android",
+    "cap:run:ios": "npx cap run ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
     "@opennextjs/cloudflare": "^1.17.1",
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.0",

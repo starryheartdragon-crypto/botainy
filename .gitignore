@@ -51,3 +51,12 @@ next-env.d.ts
 !.dev.vars.example
 !.env.example
 !.env.production
+
+# Capacitor native build artifacts
+/android/.gradle
+/android/build
+/android/app/build
+/android/local.properties
+/ios/App/Pods
+/ios/App/DerivedData
+/ios/App/.xcode.env.local
