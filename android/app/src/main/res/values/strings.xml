@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Botainy</string>
+    <string name="title_activity_main">Botainy</string>
+    <string name="package_name">com.botainy.app</string>
+    <string name="custom_url_scheme">com.botainy.app</string>
+</resources>
