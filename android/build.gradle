@@ -24,6 +24,12 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
+task.register('clean', Delete) {
+    def var = clean(type: Delete) {
+        //noinspection GrDeprecatedAPIUsage
+        delete rootProject.buildDir
+    }
+    clean(type: Delete) {
+    //noinspection GrDeprecatedAPIUsage
     delete rootProject.buildDir
 }
