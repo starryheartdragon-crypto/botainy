@@ -1,5 +1,3 @@
-import axios from 'axios'
-
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 
@@ -39,24 +37,26 @@ export interface ChatCompletionResponse {
 export async function sendChatMessage(
   request: ChatCompletionRequest
 ): Promise<ChatCompletionResponse> {
-  try {
-    const response = await axios.post<ChatCompletionResponse>(
-      `${OPENROUTER_BASE_URL}/chat/completions`,
-      request,
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+  const response = await fetch(
+    `${OPENROUTER_BASE_URL}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    }
+  )
 
-    return response.data
-  } catch (error) {
-    console.error('OpenRouter API error:', error)
-    throw error
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('OpenRouter API error:', response.status, errorText)
+    throw new Error(`OpenRouter API error: ${response.status}`)
   }
+
+  return response.json() as Promise<ChatCompletionResponse>
 }
 
 /** Primary model used for all AI completions. */

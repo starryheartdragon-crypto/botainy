@@ -15,30 +15,17 @@
     "deploy:preview": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env preview",
     "deploy:production": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
     "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "cap:sync": "npx cap sync",
-    "cap:android": "npx cap open android",
-    "cap:ios": "npx cap open ios",
-    "cap:run:android": "npx cap run android",
-    "cap:run:ios": "npx cap run ios"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@capacitor/android": "^8.2.0",
-    "@capacitor/cli": "^8.2.0",
-    "@capacitor/core": "^8.2.0",
-    "@capacitor/ios": "^8.2.0",
     "@opennextjs/cloudflare": "^1.17.1",
     "@supabase/supabase-js": "^2.39.0",
-    "axios": "^1.6.0",
-    "glob": "^13.0.6",
     "lucide-react": "^0.577.0",
-    "miniflare": "^4.20250906.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-easy-crop": "^5.5.6",
     "react-hot-toast": "^2.4.0",
-    "undici": "^7.24.3",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
@@ -51,6 +38,10 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4.2.1",
     "typescript": "5.9.3",
+    "axios": "^1.6.0",
+    "glob": "^13.0.6",
+    "miniflare": "^4.20250906.0",
+    "undici": "^7.24.3",
     "wrangler": "^4.73.0"
   }
 }
