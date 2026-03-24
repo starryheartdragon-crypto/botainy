@@ -20,14 +20,14 @@ const nextConfig: NextConfig = {
   experimental: {
     // Tree-shake lucide-react so only imported icons are bundled
     optimizePackageImports: ["lucide-react"],
-    // Tell Next.js NFT tracer to skip @vercel/og files for every route.
-    // This project does not use next/og / ImageResponse, so the ~2.2 MiB
-    // of resvg.wasm + yoga.wasm + index.edge.js are pure dead weight.
-    // Without this, @opennextjs/cloudflare's patchVercelOgLibrary() detects
-    // @vercel/og in the NFT traces and copies those files into the worker bundle.
-    outputFileTracingExcludes: {
-      "/**": ["./node_modules/next/dist/compiled/@vercel/og/**"],
-    },
+  },
+  // Tell Next.js NFT tracer to skip @vercel/og files for every route.
+  // This project does not use next/og / ImageResponse, so the ~2.2 MiB
+  // of resvg.wasm + yoga.wasm + index.edge.js are pure dead weight.
+  // Without this, @opennextjs/cloudflare's patchVercelOgLibrary() detects
+  // @vercel/og in the NFT traces and copies those files into the worker bundle.
+  outputFileTracingExcludes: {
+    "/**": ["./node_modules/next/dist/compiled/@vercel/og/**"],
   },
   images: {
     remotePatterns: supabaseHostname
