@@ -3,6 +3,10 @@
 	"main": ".open-next/worker.js",
 	"name": "botainy",
 	"compatibility_date": "2026-03-05",
+	// Minify the final worker bundle at deploy time.
+	// (opennextjs-cloudflare intentionally skips minification during its build
+	// step so it can apply string-replacement patches; wrangler handles it here.)
+	"minify": true,
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"
