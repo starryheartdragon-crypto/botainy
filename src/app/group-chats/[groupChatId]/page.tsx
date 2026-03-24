@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { PersonaSelector } from '@/components/PersonaSelector'
 import { FormattedText } from '@/components/MessageList'
+import { SoundtrackDrawer } from '@/components/SoundtrackDrawer'
 
 interface GroupMessage {
   id: string
@@ -54,6 +55,13 @@ export default function GroupChatDetailPage() {
   // NSFW toggle state
   const [isNsfw, setIsNsfw] = useState(false)
   const [savingNsfw, setSavingNsfw] = useState(false)
+
+  // Soundtrack drawer state
+  type Track = { title: string; youtubeId: string; reasoning: string; addedBy: 'AI' | 'User' }
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [aiTracks, setAiTracks] = useState<Track[]>([])
+  const [userTracks, setUserTracks] = useState<Track[]>([])
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
 
   // Load group NSFW state
   useEffect(() => {
@@ -144,6 +152,50 @@ export default function GroupChatDetailPage() {
     setMessages([])
     alert('Chat reset!')
   }
+
+  const fetchAiTracks = async () => {
+    const sceneSnippet = messages
+      .slice(-6)
+      .map((m) => `${m.sender_id === userId ? 'User' : m.sender_name || 'Bot'}: ${m.content}`)
+      .join('\n')
+
+    if (!sceneSnippet.trim()) {
+      alert('Start a conversation first so the soundtrack can read the scene.')
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const resp = await fetch('/api/music-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ scene_description: sceneSnippet }),
+      })
+      if (!resp.ok) throw new Error('Failed to fetch suggestions')
+      const data = await resp.json()
+      setAiTracks(
+        (data.tracks ?? []).map((t: { title: string; artist: string; reasoning: string }) => ({
+          title: `${t.title} — ${t.artist}`,
+          youtubeId: '',
+          reasoning: t.reasoning,
+          addedBy: 'AI' as const,
+        }))
+      )
+    } catch {
+      alert('Could not load soundtrack suggestions.')
+    }
+  }
+
+  const handleOpenDrawer = async () => {
+    await fetchAiTracks()
+    setDrawerOpen(true)
+  }
+  const handleCloseDrawer = () => setDrawerOpen(false)
+  const handleAddUserTrack = (track: Track) => setUserTracks((prev) => [...prev, track])
+  const handleSelectTrack = (track: Track) => setSelectedTrack(track)
 
   const handleGetSummary = async () => {
     if (messages.length < 15) return
@@ -400,6 +452,15 @@ export default function GroupChatDetailPage() {
       <div className="border-b border-gray-800 px-4 sm:px-6 py-4 bg-gray-950/80 relative">
         <h1 className="text-lg sm:text-xl font-semibold">{group?.name || 'Group Chat'}</h1>
         <p className="text-xs sm:text-sm text-gray-400 mt-1">{group?.description || 'Private group conversation'}</p>
+        {/* Soundtrack Button */}
+        <button
+          onClick={handleOpenDrawer}
+          className="absolute top-4 right-20 z-40 p-3 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-lg text-2xl"
+          title="Suggest Soundtrack"
+          style={{ boxShadow: '0 4px 24px rgba(128,0,192,0.3)' }}
+        >
+          <span role="img" aria-label="Magic Wand">🪄</span>
+        </button>
         {/* Settings Button */}
         <button
           onClick={() => setSettingsOpen(true)}
@@ -603,6 +664,17 @@ export default function GroupChatDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Soundtrack Drawer */}
+      <SoundtrackDrawer
+        aiTracks={aiTracks}
+        userTracks={userTracks}
+        onAddUserTrack={handleAddUserTrack}
+        onSelectTrack={handleSelectTrack}
+        selectedTrack={selectedTrack}
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+      />
 
       {/* Summary Modal */}
       {summaryModalOpen && (
