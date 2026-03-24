@@ -30,6 +30,7 @@ task.register('clean', Delete) {
         delete rootProject.buildDir
     }
     clean(type: Delete) {
-    //noinspection GrDeprecatedAPIUsage
-    delete rootProject.buildDir
+        //noinspection GrDeprecatedAPIUsage
+        delete rootProject.buildDir
+    }
 }
