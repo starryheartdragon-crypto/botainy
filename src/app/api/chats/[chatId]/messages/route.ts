@@ -12,6 +12,8 @@ type ChatWithRelations = {
   is_nsfw: boolean | null
   relationship_context: string | null
   api_temperature: number | null
+  response_length: number | null
+  narrative_style: number | null
   bots: BotInfo | BotInfo[] | null
   personas: PersonaContext | PersonaContext[] | null
 }
@@ -77,6 +79,18 @@ async function getAuthUser(req: NextRequest) {
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
+function buildResponseLengthInstruction(responseLength: number | null | undefined): string | null {
+  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
+  if (responseLength === 2) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs or more.'
+  return null
+}
+
+function buildNarrativeStyleInstruction(narrativeStyle: number | null | undefined): string | null {
+  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
+  if (narrativeStyle === 2) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  return null
 }
 
 // GET /api/chats/[chatId]/messages - Get messages for a chat
@@ -148,7 +162,7 @@ export async function POST(
     // Verify user owns this chat and get bot personality
     const { data: chat, error: chatError } = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, bots(personality, name), personas(name, description)')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, bots(personality, name), personas(name, description)')
       .eq('id', chatId)
       .single()
 
@@ -249,6 +263,8 @@ export async function POST(
       `- Drive the narrative forward but leave room for the user to respond.`,
       ROLEPLAY_FORMATTING_INSTRUCTIONS,
       ...(typedChat.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
+      ...(buildResponseLengthInstruction(typedChat.response_length) ? [buildResponseLengthInstruction(typedChat.response_length)!] : []),
+      ...(buildNarrativeStyleInstruction(typedChat.narrative_style) ? [buildNarrativeStyleInstruction(typedChat.narrative_style)!] : []),
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')

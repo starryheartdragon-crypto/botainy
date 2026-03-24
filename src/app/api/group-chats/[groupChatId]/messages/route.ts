@@ -30,6 +30,8 @@ type GroupChatContext = {
   dm_bot_id: string | null
   is_nsfw: boolean
   api_temperature: number
+  response_length: number
+  narrative_style: number
 }
 
 type GroupBot = {
@@ -118,6 +120,18 @@ function isLikelySenderIdConstraintError(error: unknown) {
       message.includes('is not present in table')
     )
   )
+}
+
+function buildResponseLengthInstruction(responseLength: number): string | null {
+  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
+  if (responseLength === 2) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs or more.'
+  return null
+}
+
+function buildNarrativeStyleInstruction(narrativeStyle: number): string | null {
+  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
+  if (narrativeStyle === 2) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  return null
 }
 
 function pickRespondingBot(
@@ -413,6 +427,8 @@ async function generateBotReply({
     buildGroupModePrompt(group),
     criticalRules,
     ...(!isRoleplayMode && group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
+    buildResponseLengthInstruction(group.response_length),
+    buildNarrativeStyleInstruction(group.narrative_style),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -562,6 +578,8 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
     dm_bot_id: typeof row.dm_bot_id === 'string' ? row.dm_bot_id : null,
     is_nsfw: row.is_nsfw === true,
     api_temperature: typeof row.api_temperature === 'number' ? row.api_temperature : 0.92,
+    response_length: typeof row.response_length === 'number' ? row.response_length : 1,
+    narrative_style: typeof row.narrative_style === 'number' ? row.narrative_style : 1,
   }
 
   return { group, warning: null }

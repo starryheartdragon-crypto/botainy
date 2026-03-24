@@ -35,6 +35,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [apiTemperature, setApiTemperature] = useState(0.9)
+  const [responseLength, setResponseLength] = useState(1)
+  const [narrativeStyle, setNarrativeStyle] = useState(1)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   // NSFW toggle state
@@ -53,6 +55,12 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
           setRelationshipContext(data.relationship_context ?? '')
           if (typeof data.api_temperature === 'number') {
             setApiTemperature(data.api_temperature)
+          }
+          if (typeof data.response_length === 'number') {
+            setResponseLength(data.response_length)
+          }
+          if (typeof data.narrative_style === 'number') {
+            setNarrativeStyle(data.narrative_style)
           }
         }
       } catch {}
@@ -189,7 +197,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       const resp = await fetch(`/api/chats/${chatId}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ api_temperature: apiTemperature }),
+        body: JSON.stringify({ api_temperature: apiTemperature, response_length: responseLength, narrative_style: narrativeStyle }),
       })
       if (resp.ok) {
         toast.success('Settings saved!')
@@ -628,6 +636,36 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
                 <label className="block text-sm font-medium mb-2 text-gray-200">Temperature</label>
                 <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
                 <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
+              </div>
+              {/* Response Length */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2 text-gray-200">Response Length</label>
+                <input
+                  type="range" min="0" max="2" step="1"
+                  value={responseLength}
+                  onChange={e => setResponseLength(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Shorter</span>
+                  <span className="font-medium text-gray-300">{['Shorter', 'Default', 'Longer'][responseLength]}</span>
+                  <span>Longer</span>
+                </div>
+              </div>
+              {/* Narrative Style */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2 text-gray-200">Writing Style</label>
+                <input
+                  type="range" min="0" max="2" step="1"
+                  value={narrativeStyle}
+                  onChange={e => setNarrativeStyle(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Dialogue</span>
+                  <span className="font-medium text-gray-300">{['Dialogue-heavy', 'Balanced', 'Narrative-heavy'][narrativeStyle]}</span>
+                  <span>Narrative</span>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">

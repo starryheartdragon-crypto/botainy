@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -83,6 +83,8 @@ export async function GET(
       is_nsfw?: boolean
       relationship_context?: string | null
       api_temperature?: number | null
+      response_length?: number | null
+      narrative_style?: number | null
       created_at?: string
       updated_at?: string
     } | null = null
@@ -145,6 +147,8 @@ export async function GET(
       is_nsfw: chat.is_nsfw ?? false,
       relationship_context: chat.relationship_context ?? null,
       api_temperature: chat.api_temperature ?? 0.9,
+      response_length: chat.response_length ?? 1,
+      narrative_style: chat.narrative_style ?? 1,
       bot: safeBot,
     })
   } catch (err: unknown) {
@@ -218,7 +222,7 @@ export async function PATCH(
     const { serviceClient } = getSupabaseClients()
 
     const body = await req.json()
-    const { is_nsfw, relationship_context, api_temperature } = body
+    const { is_nsfw, relationship_context, api_temperature, response_length, narrative_style } = body
 
     const updates: Record<string, unknown> = {}
 
@@ -237,6 +241,18 @@ export async function PATCH(
         return NextResponse.json({ error: 'api_temperature must be a number between 0 and 2' }, { status: 400 })
       }
       updates.api_temperature = api_temperature
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'response_length')) {
+      if (typeof response_length !== 'number' || ![0, 1, 2].includes(response_length)) {
+        return NextResponse.json({ error: 'response_length must be 0, 1, or 2' }, { status: 400 })
+      }
+      updates.response_length = response_length
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'narrative_style')) {
+      if (typeof narrative_style !== 'number' || ![0, 1, 2].includes(narrative_style)) {
+        return NextResponse.json({ error: 'narrative_style must be 0, 1, or 2' }, { status: 400 })
+      }
+      updates.narrative_style = narrative_style
     }
 
     if (Object.keys(updates).length === 0) {

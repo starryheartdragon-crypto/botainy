@@ -45,6 +45,8 @@ export default function GroupChatDetailPage() {
   // Settings modal state
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [apiTemperature, setApiTemperature] = useState(1.0)
+  const [responseLength, setResponseLength] = useState(1)
+  const [narrativeStyle, setNarrativeStyle] = useState(1)
   const [savingSettings, setSavingSettings] = useState(false)
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
@@ -67,6 +69,12 @@ export default function GroupChatDetailPage() {
           setIsNsfw(!!data.is_nsfw)
           if (typeof data.api_temperature === 'number') {
             setApiTemperature(data.api_temperature)
+          }
+          if (typeof data.response_length === 'number') {
+            setResponseLength(data.response_length)
+          }
+          if (typeof data.narrative_style === 'number') {
+            setNarrativeStyle(data.narrative_style)
           }
         }
       } catch {}
@@ -117,7 +125,7 @@ export default function GroupChatDetailPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ api_temperature: apiTemperature }),
+        body: JSON.stringify({ api_temperature: apiTemperature, response_length: responseLength, narrative_style: narrativeStyle }),
       })
       if (resp.ok) {
         alert('Settings saved!')
@@ -486,18 +494,25 @@ export default function GroupChatDetailPage() {
       </div>
 
       <div className="border-t border-gray-800 p-3 sm:p-4 bg-gray-950">
-        <div className="flex gap-2 sm:gap-3">
-          <input
+        <div className="flex gap-2 sm:gap-3 items-end">
+          <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && e.shiftKey) {
                 e.preventDefault()
                 sendMessage()
               }
             }}
-            placeholder="Message group..."
-            className="flex-1 px-4 py-2 sm:py-3 bg-gray-900 border border-gray-700 rounded-full text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Message group... (Shift+Enter to send)"
+            rows={1}
+            className="flex-1 px-4 py-2 sm:py-3 bg-gray-900 border border-gray-700 rounded-2xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+            style={{ minHeight: '44px', maxHeight: '200px' }}
+            onInput={(e) => {
+              const el = e.currentTarget
+              el.style.height = 'auto'
+              el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+            }}
           />
           <button
             onClick={sendMessage}
@@ -549,6 +564,36 @@ export default function GroupChatDetailPage() {
                 <label className="block text-sm font-medium text-gray-200 mb-2">Temperature</label>
                 <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
                 <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
+              </div>
+              {/* Response Length */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-200 mb-2">Response Length</label>
+                <input
+                  type="range" min="0" max="2" step="1"
+                  value={responseLength}
+                  onChange={e => setResponseLength(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Shorter</span>
+                  <span className="font-medium text-gray-300">{['Shorter', 'Default', 'Longer'][responseLength]}</span>
+                  <span>Longer</span>
+                </div>
+              </div>
+              {/* Narrative Style */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-200 mb-2">Writing Style</label>
+                <input
+                  type="range" min="0" max="2" step="1"
+                  value={narrativeStyle}
+                  onChange={e => setNarrativeStyle(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Dialogue</span>
+                  <span className="font-medium text-gray-300">{['Dialogue-heavy', 'Balanced', 'Narrative-heavy'][narrativeStyle]}</span>
+                  <span>Narrative</span>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">

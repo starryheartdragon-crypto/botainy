@@ -37,7 +37,7 @@ export async function GET(
 
     const { data: group, error } = await serviceClient()
       .from('group_chats')
-      .select('id, name, description, creator_id, is_nsfw, api_temperature, created_at, updated_at')
+      .select('id, name, description, creator_id, is_nsfw, api_temperature, response_length, narrative_style, created_at, updated_at')
       .eq('id', groupChatId)
       .maybeSingle()
 
@@ -69,7 +69,7 @@ export async function PATCH(
 
     const { groupChatId } = await params
     const body = await req.json()
-    const { is_nsfw, api_temperature } = body
+    const { is_nsfw, api_temperature, response_length, narrative_style } = body
 
     const updates: Record<string, unknown> = {}
 
@@ -85,6 +85,20 @@ export async function PATCH(
         return NextResponse.json({ error: 'api_temperature must be a number between 0 and 2' }, { status: 400 })
       }
       updates.api_temperature = api_temperature
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'response_length')) {
+      if (typeof response_length !== 'number' || ![0, 1, 2].includes(response_length)) {
+        return NextResponse.json({ error: 'response_length must be 0, 1, or 2' }, { status: 400 })
+      }
+      updates.response_length = response_length
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'narrative_style')) {
+      if (typeof narrative_style !== 'number' || ![0, 1, 2].includes(narrative_style)) {
+        return NextResponse.json({ error: 'narrative_style must be 0, 1, or 2' }, { status: 400 })
+      }
+      updates.narrative_style = narrative_style
     }
 
     if (Object.keys(updates).length === 0) {
