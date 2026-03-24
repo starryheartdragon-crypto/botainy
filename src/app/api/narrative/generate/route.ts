@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkRateLimit, getClientIpFromHeaders, rateLimitHeaders } from '@/lib/rateLimit'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
-import { ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { FOURTH_WALL_MUSIC_GUARDRAIL, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type NarrativeChoice = {
   text: string
@@ -236,7 +236,7 @@ Rules:
 - You may use these markers inside JSON string values when it improves roleplay clarity.
 - No markdown, no explanations, only JSON.`
 
-  const systemPromptWithFormatting = `${systemPrompt}\n\n${ROLEPLAY_FORMATTING_INSTRUCTIONS}`
+  const systemPromptWithFormatting = `${systemPrompt}\n\n${FOURTH_WALL_MUSIC_GUARDRAIL}\n\n${ROLEPLAY_FORMATTING_INSTRUCTIONS}`
 
     const guidance: string[] = []
     if (genreSetting?.trim()) guidance.push(`Genre/Setting: ${genreSetting.trim()}`)

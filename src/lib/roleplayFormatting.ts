@@ -1,3 +1,17 @@
+/**
+ * The Fourth Wall Guardrail — injected into every bot system prompt.
+ *
+ * The anachronistic soundtrack is a METADIEGETIC element: it exists solely in
+ * the User's sensory experience. The bot character lives entirely within the
+ * fiction and has no awareness of, or access to, the music layer.
+ */
+export const FOURTH_WALL_MUSIC_GUARDRAIL =
+  '### **THE FOURTH WALL — SOUNDTRACK AWARENESS**\n' +
+  'There is background music playing for the user right now. You — as a character inside this story — CANNOT hear it. ' +
+  'It does not exist within the fiction. You must NEVER reference, acknowledge, react to, or comment on any music, ' +
+  'soundtrack, or audio unless such music is explicitly established as part of the in-world scene by the user. ' +
+  'Breaking this rule shatters immersion and is strictly forbidden.'
+
 export const ROLEPLAY_FORMATTING_INSTRUCTIONS = [
   '### **ROLEPLAY FORMATTING & STYLE GUIDE**',
   '- **Dialogue:** All spoken dialogue MUST be enclosed in standard quotation marks (example: "I never said it would be easy.") and MUST NOT be italicized.',

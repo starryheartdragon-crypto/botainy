@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
-import { buildContentRatingInstruction, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string }
@@ -242,6 +242,7 @@ export async function POST(
       personaPrompt,
       ...(relationshipBlock ? [relationshipBlock] : []),
       buildContentRatingInstruction(typedChat.is_nsfw ?? false),
+      FOURTH_WALL_MUSIC_GUARDRAIL,
       `### **CRITICAL ROLEPLAY RULES**`,
       `- ALWAYS stay in character as ${botInfo.name}.`,
       `- NEVER write dialogue, actions, or thoughts for ${personaContext?.name || 'the user'}.`,

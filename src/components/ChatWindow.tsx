@@ -204,31 +204,41 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     }
   };
 
-  const fetchAiTracks = () => {
-    setAiTracks([
-      {
-        title: 'Synthwave Dream',
-        youtubeId: 'dQw4w9WgXcQ',
-        reasoning: 'Perfect for the dramatic tension.',
-        addedBy: 'AI',
-      },
-      {
-        title: 'Cyberpunk Vibes',
-        youtubeId: 'jNQXAC9IVRw',
-        reasoning: 'Anachronistic fit for the mood.',
-        addedBy: 'AI',
-      },
-      {
-        title: 'Cinematic Score Example',
-        youtubeId: 'V-_O7nl0Ii0',
-        reasoning: 'Wild card for dramatic effect.',
-        addedBy: 'AI',
-      },
-    ]);
+  const fetchAiTracks = async () => {
+    // Build a short scene description from the most recent messages
+    const sceneSnippet = messages
+      .slice(-6)
+      .map((m) => `${m.senderId === userId ? 'User' : bot.name}: ${m.content}`)
+      .join('\n');
+
+    if (!sceneSnippet.trim()) {
+      toast('Start a conversation first so the soundtrack can read the scene.', { icon: '🎵' });
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/music-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scene_description: sceneSnippet }),
+      });
+      if (!resp.ok) throw new Error('Failed to fetch suggestions');
+      const data = await resp.json();
+      setAiTracks(
+        (data.tracks ?? []).map((t: { title: string; artist: string; reasoning: string }) => ({
+          title: `${t.title} — ${t.artist}`,
+          youtubeId: '',
+          reasoning: t.reasoning,
+          addedBy: 'AI' as const,
+        }))
+      );
+    } catch {
+      toast.error('Could not load soundtrack suggestions.');
+    }
   };
 
-  const handleOpenDrawer = () => {
-    fetchAiTracks();
+  const handleOpenDrawer = async () => {
+    await fetchAiTracks();
     setDrawerOpen(true);
   };
   const handleCloseDrawer = () => setDrawerOpen(false);

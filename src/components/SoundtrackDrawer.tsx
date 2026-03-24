@@ -100,12 +100,23 @@ export const SoundtrackDrawer: React.FC<SoundtrackDrawerProps> = ({
                     <span className="font-bold text-gray-100">{track.title}</span>
                     <span className="ml-2 text-xs text-gray-400">{track.addedBy === 'AI' ? 'AI Suggestion' : 'User Added'}</span>
                   </div>
-                  <button
-                    onClick={() => onSelectTrack(track)}
-                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                  >
-                    Play
-                  </button>
+                  {track.youtubeId ? (
+                    <button
+                      onClick={() => onSelectTrack(track)}
+                      className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                    >
+                      Play
+                    </button>
+                  ) : (
+                    <a
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(track.title)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-gray-600 text-gray-200 px-2 py-1 rounded hover:bg-gray-500 text-xs"
+                    >
+                      Search
+                    </a>
+                  )}
                 </div>
                 <div className="text-sm mt-1 text-gray-300">{track.reasoning}</div>
               </li>
