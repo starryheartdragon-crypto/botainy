@@ -1,5 +1,6 @@
 "use client";
-import NotificationBell from "./NotificationBell";
+import dynamic from "next/dynamic";
+const NotificationBell = dynamic(() => import("./NotificationBell"), { ssr: false });
 
 export default function GlobalClientUI() {
   return (

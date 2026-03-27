@@ -18,8 +18,8 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
-    // Tree-shake lucide-react so only imported icons are bundled
-    optimizePackageImports: ["lucide-react"],
+    // Tree-shake icon/utility packages so only used exports are bundled
+    optimizePackageImports: ["lucide-react", "@supabase/supabase-js", "react-hot-toast", "zustand"],
   },
   // Tell Next.js NFT tracer to skip @vercel/og files for every route.
   // This project does not use next/og / ImageResponse, so the ~2.2 MiB

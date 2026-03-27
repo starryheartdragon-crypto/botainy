@@ -4,7 +4,9 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-import Cropper, { Area } from "react-easy-crop"
+import dynamic from "next/dynamic"
+import type { Area } from "react-easy-crop"
+const Cropper = dynamic(() => import("react-easy-crop"), { ssr: false })
 import { UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
 
