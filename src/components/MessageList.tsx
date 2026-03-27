@@ -199,15 +199,17 @@ export function MessageList({
                         minute: '2-digit' 
                       })}
                     </span>
-                    {isUser && !isEditing && (
+                    {!isEditing && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        <button
-                          onClick={() => handleEditStart(msg)}
-                          className="text-xs px-2 py-0.5 hover:bg-blue-700 rounded text-blue-200 transition"
-                          title="Edit message"
-                        >
-                          Edit
-                        </button>
+                        {isUser && (
+                          <button
+                            onClick={() => handleEditStart(msg)}
+                            className="text-xs px-2 py-0.5 hover:bg-blue-700 rounded text-blue-200 transition"
+                            title="Edit message"
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(msg.id)}
                           className="text-xs px-2 py-0.5 hover:bg-red-700 rounded text-red-200 transition"

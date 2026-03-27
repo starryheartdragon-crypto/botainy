@@ -82,14 +82,18 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
 }
 
 function buildResponseLengthInstruction(responseLength: number | null | undefined): string | null {
-  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
-  if (responseLength === 2) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs or more.'
+  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response very short — 1 paragraph at most. Be terse and to the point.'
+  if (responseLength === 1) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
+  if (responseLength === 3) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs.'
+  if (responseLength === 4) return '### **RESPONSE LENGTH**\nWrite a very long, deeply detailed response — aim for 6 or more paragraphs with rich description and depth.'
   return null
 }
 
 function buildNarrativeStyleInstruction(narrativeStyle: number | null | undefined): string | null {
-  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
-  if (narrativeStyle === 2) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nWrite entirely in dialogue. Use no narrative description or action prose whatsoever — only spoken words.'
+  if (narrativeStyle === 1) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
+  if (narrativeStyle === 3) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  if (narrativeStyle === 4) return '### **STYLE BALANCE**\nWrite entirely in narrative prose — atmospheric description, internal thoughts, and action. Use no spoken dialogue at all.'
   return null
 }
 

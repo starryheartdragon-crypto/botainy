@@ -87,15 +87,28 @@ export async function DELETE(
 
     const { messageId } = await params
 
-    // Check if user owns this message
+    // Check if user owns this message, or owns the chat (for bot messages)
     const { data: message, error: fetchError } = await serviceClient()
       .from('chat_messages')
-      .select('id, sender_id')
+      .select('id, sender_id, chat_id')
       .eq('id', messageId)
       .single()
 
-    if (fetchError || !message || message.sender_id !== user.id) {
+    if (fetchError || !message) {
       return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 403 })
+    }
+
+    if (message.sender_id !== user.id) {
+      // Not the sender — verify the user owns the chat (bot message case)
+      const { data: chat, error: chatError } = await serviceClient()
+        .from('chats')
+        .select('user_id')
+        .eq('id', message.chat_id)
+        .single()
+
+      if (chatError || !chat || chat.user_id !== user.id) {
+        return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 403 })
+      }
     }
 
     // Delete message

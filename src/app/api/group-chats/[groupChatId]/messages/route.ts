@@ -123,14 +123,18 @@ function isLikelySenderIdConstraintError(error: unknown) {
 }
 
 function buildResponseLengthInstruction(responseLength: number): string | null {
-  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
-  if (responseLength === 2) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs or more.'
+  if (responseLength === 0) return '### **RESPONSE LENGTH**\nKeep your response very short — 1 paragraph at most. Be terse and to the point.'
+  if (responseLength === 1) return '### **RESPONSE LENGTH**\nKeep your response short and concise — aim for 1 to 2 paragraphs.'
+  if (responseLength === 3) return '### **RESPONSE LENGTH**\nWrite a longer, richly detailed response — aim for 4 to 6 paragraphs.'
+  if (responseLength === 4) return '### **RESPONSE LENGTH**\nWrite a very long, deeply detailed response — aim for 6 or more paragraphs with rich description and depth.'
   return null
 }
 
 function buildNarrativeStyleInstruction(narrativeStyle: number): string | null {
-  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
-  if (narrativeStyle === 2) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  if (narrativeStyle === 0) return '### **STYLE BALANCE**\nWrite entirely in dialogue. Use no narrative description or action prose whatsoever — only spoken words.'
+  if (narrativeStyle === 1) return '### **STYLE BALANCE**\nFocus heavily on dialogue and spoken exchange. Keep action lines and descriptive prose brief and minimal.'
+  if (narrativeStyle === 3) return '### **STYLE BALANCE**\nFocus heavily on narrative description, action, and atmosphere. Use spoken dialogue sparingly — let the scene do the talking.'
+  if (narrativeStyle === 4) return '### **STYLE BALANCE**\nWrite entirely in narrative prose — atmospheric description, internal thoughts, and action. Use no spoken dialogue at all.'
   return null
 }
 
@@ -764,18 +768,20 @@ export async function POST(
           botWarning = botsWarning
         }
 
-        // Allow up to MAX_MULTI_BOT_TURNS bot-to-bot exchanges per user message when multiple bots are present.
-        const maxBotTurns = bots.length > 1 ? MAX_MULTI_BOT_TURNS : 1
+        // Each bot responds at most once per user message cycle to prevent reply loops.
+        const maxBotTurns = Math.min(bots.length > 1 ? MAX_MULTI_BOT_TURNS : 1, bots.length)
         let triggerMessage = data as GroupMessageRow
         const botsById = new Map(bots.map((bot) => [bot.id, bot]))
         const botsByName = new Map(bots.map((bot) => [bot.name.trim().toLowerCase(), bot]))
+        // Track all bots that have already responded this cycle so they are not picked again.
+        const respondedBotIds = new Set<string>()
 
         for (let turn = 0; turn < maxBotTurns; turn += 1) {
           const triggerBot = resolveBotFromMessage(triggerMessage, botsById, botsByName)
 
-          // Only exclude the bot that sent the trigger message so it doesn't respond to itself.
-          // Other bots may respond again in later turns, enabling natural bot-to-bot conversation.
-          const excludedBotIds = new Set<string>()
+          // Exclude the trigger bot (so it doesn't immediately reply to itself) AND
+          // every bot that has already responded this cycle (prevents A→B→A loops).
+          const excludedBotIds = new Set<string>(respondedBotIds)
           if (triggerBot) {
             excludedBotIds.add(triggerBot.id)
           }
@@ -849,6 +855,7 @@ export async function POST(
           }
 
           botMessages.push(decorated)
+          respondedBotIds.add(respondingBot.id)
           triggerMessage = botMessageRow
           generationMessages.push({
             sender_id: String(botMessageRow.sender_id || ''),

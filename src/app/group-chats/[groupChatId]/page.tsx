@@ -334,6 +334,16 @@ export default function GroupChatDetailPage() {
           upsertMessages([payload.new as GroupMessage])
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'group_chat_messages', filter: `group_chat_id=eq.${groupChatId}` },
+        (payload) => {
+          const deleted = payload.old as { id?: string }
+          if (deleted?.id) {
+            setMessages((prev) => prev.filter((m) => m.id !== deleted.id))
+          }
+        }
+      )
       .subscribe()
 
     const intervalId = window.setInterval(() => {
@@ -345,6 +355,24 @@ export default function GroupChatDetailPage() {
       channel.unsubscribe()
     }
   }, [fetchMessages, groupChatId])
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Delete this message?')) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const resp = await fetch(`/api/group-chats/${groupChatId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (resp.ok) {
+        // Message removed via real-time subscription; remove locally as fallback
+        setMessages((prev) => prev.filter((m) => m.id !== messageId))
+      }
+    } catch {
+      // non-critical
+    }
+  }
 
   const sendMessage = async () => {
     const content = text.trim()
@@ -511,7 +539,7 @@ export default function GroupChatDetailPage() {
           const showAvatar = true
           const senderLabel = message.sender_name || (message.sender_is_bot ? 'Bot' : 'User')
           return (
-            <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} group`}>
               <div className={`flex items-end gap-2 max-w-[90%] sm:max-w-lg ${mine ? 'flex-row-reverse' : ''}`}>
                 {showAvatar ? (
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-700 border border-gray-600 shrink-0">
@@ -544,9 +572,18 @@ export default function GroupChatDetailPage() {
                     </p>
                   ) : null}
                   <p className="break-words whitespace-pre-wrap"><FormattedText text={message.content} /></p>
-                  <p className="text-[10px] text-gray-300 mt-1">
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <p className="text-[10px] text-gray-300">
+                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <button
+                      onClick={() => handleDeleteMessage(message.id)}
+                      className="text-[10px] px-1.5 py-0.5 hover:bg-red-700 rounded text-red-300 transition opacity-0 group-hover:opacity-100"
+                      title="Delete message"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -630,29 +667,29 @@ export default function GroupChatDetailPage() {
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-200 mb-2">Response Length</label>
                 <input
-                  type="range" min="0" max="2" step="1"
+                  type="range" min="0" max="4" step="1"
                   value={responseLength}
                   onChange={e => setResponseLength(Number(e.target.value))}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Shorter</span>
-                  <span className="font-medium text-gray-300">{['Shorter', 'Default', 'Longer'][responseLength]}</span>
-                  <span>Longer</span>
+                  <span>Very Short</span>
+                  <span className="font-medium text-gray-300">{['Very Short', 'Short', 'Default', 'Long', 'Very Long'][responseLength]}</span>
+                  <span>Very Long</span>
                 </div>
               </div>
               {/* Narrative Style */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-200 mb-2">Writing Style</label>
                 <input
-                  type="range" min="0" max="2" step="1"
+                  type="range" min="0" max="4" step="1"
                   value={narrativeStyle}
                   onChange={e => setNarrativeStyle(Number(e.target.value))}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>Dialogue</span>
-                  <span className="font-medium text-gray-300">{['Dialogue-heavy', 'Balanced', 'Narrative-heavy'][narrativeStyle]}</span>
+                  <span className="font-medium text-gray-300">{['Dialogue-only', 'Dialogue-heavy', 'Balanced', 'Narrative-heavy', 'Narrative-only'][narrativeStyle]}</span>
                   <span>Narrative</span>
                 </div>
               </div>

@@ -439,7 +439,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         throw new Error('Failed to delete message')
       }
 
-      // Message will be removed via real-time subscription
+      // Remove locally immediately (realtime subscription is a backup)
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId))
     } catch (error) {
       console.error('Error deleting message:', error)
     }
@@ -641,29 +642,29 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
               <div className="mt-4">
                 <label className="block text-sm font-medium mb-2 text-gray-200">Response Length</label>
                 <input
-                  type="range" min="0" max="2" step="1"
+                  type="range" min="0" max="4" step="1"
                   value={responseLength}
                   onChange={e => setResponseLength(Number(e.target.value))}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Shorter</span>
-                  <span className="font-medium text-gray-300">{['Shorter', 'Default', 'Longer'][responseLength]}</span>
-                  <span>Longer</span>
+                  <span>Very Short</span>
+                  <span className="font-medium text-gray-300">{['Very Short', 'Short', 'Default', 'Long', 'Very Long'][responseLength]}</span>
+                  <span>Very Long</span>
                 </div>
               </div>
               {/* Narrative Style */}
               <div className="mt-4">
                 <label className="block text-sm font-medium mb-2 text-gray-200">Writing Style</label>
                 <input
-                  type="range" min="0" max="2" step="1"
+                  type="range" min="0" max="4" step="1"
                   value={narrativeStyle}
                   onChange={e => setNarrativeStyle(Number(e.target.value))}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>Dialogue</span>
-                  <span className="font-medium text-gray-300">{['Dialogue-heavy', 'Balanced', 'Narrative-heavy'][narrativeStyle]}</span>
+                  <span className="font-medium text-gray-300">{['Dialogue-only', 'Dialogue-heavy', 'Balanced', 'Narrative-heavy', 'Narrative-only'][narrativeStyle]}</span>
                   <span>Narrative</span>
                 </div>
               </div>

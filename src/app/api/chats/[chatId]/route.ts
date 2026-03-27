@@ -243,14 +243,14 @@ export async function PATCH(
       updates.api_temperature = api_temperature
     }
     if (Object.prototype.hasOwnProperty.call(body, 'response_length')) {
-      if (typeof response_length !== 'number' || ![0, 1, 2].includes(response_length)) {
-        return NextResponse.json({ error: 'response_length must be 0, 1, or 2' }, { status: 400 })
+      if (typeof response_length !== 'number' || ![0, 1, 2, 3, 4].includes(response_length)) {
+        return NextResponse.json({ error: 'response_length must be 0, 1, 2, 3, or 4' }, { status: 400 })
       }
       updates.response_length = response_length
     }
     if (Object.prototype.hasOwnProperty.call(body, 'narrative_style')) {
-      if (typeof narrative_style !== 'number' || ![0, 1, 2].includes(narrative_style)) {
-        return NextResponse.json({ error: 'narrative_style must be 0, 1, or 2' }, { status: 400 })
+      if (typeof narrative_style !== 'number' || ![0, 1, 2, 3, 4].includes(narrative_style)) {
+        return NextResponse.json({ error: 'narrative_style must be 0, 1, 2, 3, or 4' }, { status: 400 })
       }
       updates.narrative_style = narrative_style
     }
