@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import { supabase } from "@/lib/supabase"
+import { HARD_BOUNDARY_OPTIONS } from "@/lib/roleplayFormatting"
 
 type ProfilePersona = {
   id: string
@@ -33,6 +34,8 @@ export default function ProfilePage() {
   const [editingPersonaDescription, setEditingPersonaDescription] = useState("")
   const [personaSavingId, setPersonaSavingId] = useState<string | null>(null)
   const [personaDeletingId, setPersonaDeletingId] = useState<string | null>(null)
+  const [hardBoundaries, setHardBoundaries] = useState<string[]>([])
+  const [originalHardBoundaries, setOriginalHardBoundaries] = useState<string[]>([])
 
   useEffect(() => {
     async function loadProfile() {
@@ -62,6 +65,7 @@ export default function ProfilePage() {
           const loadedUsername = data.username ?? ""
           const loadedBio = data.bio ?? ""
           const loadedAvatar = data.avatar_url ?? null
+          const loadedBoundaries: string[] = Array.isArray(data.hard_boundaries) ? data.hard_boundaries : []
 
           setUsername(loadedUsername)
           setBio(loadedBio)
@@ -69,6 +73,8 @@ export default function ProfilePage() {
           setOriginalUsername(loadedUsername)
           setOriginalBio(loadedBio)
           setOriginalAvatarUrl(loadedAvatar)
+          setHardBoundaries(loadedBoundaries)
+          setOriginalHardBoundaries(loadedBoundaries)
 
           const badgeResp = await fetch(`/api/users/badges?ids=${data.id}`, {
             headers: {
@@ -146,7 +152,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ username, bio, avatar_url: avatarUrl }),
+        body: JSON.stringify({ username, bio, avatar_url: avatarUrl, hard_boundaries: hardBoundaries }),
         signal: controller.signal,
       })
 
@@ -163,6 +169,7 @@ export default function ProfilePage() {
       setOriginalUsername(username)
       setOriginalBio(bio)
       setOriginalAvatarUrl(avatarUrl)
+      setOriginalHardBoundaries(hardBoundaries)
       setIsEditing(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save"
@@ -440,6 +447,7 @@ export default function ProfilePage() {
     setUsername(originalUsername)
     setBio(originalBio)
     setAvatarUrl(originalAvatarUrl)
+    setHardBoundaries(originalHardBoundaries)
     setIsEditing(false)
   }
 
@@ -879,6 +887,67 @@ export default function ProfilePage() {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Hard Boundaries</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Select any content categories you want permanently blocked. When active, the AI will redirect
+              those scenarios toward combat or verbal confrontation instead — regardless of bot personality
+              or NSFW settings.
+            </p>
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-3">
+              {HARD_BOUNDARY_OPTIONS.map((option) => {
+                const checked = hardBoundaries.includes(option.key)
+                return (
+                  <label
+                    key={option.key}
+                    className="flex items-start gap-3 cursor-pointer group"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={loading}
+                      onChange={() => {
+                        setHardBoundaries((prev) =>
+                          checked ? prev.filter((k) => k !== option.key) : [...prev, option.key]
+                        )
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-900 accent-purple-500 disabled:opacity-50"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-purple-300 transition">
+                        {option.label}
+                      </p>
+                      <p className="text-xs text-gray-400">{option.description}</p>
+                    </div>
+                  </label>
+                )
+              })}
+              <p className="text-xs text-yellow-400 pt-1">
+                Save your profile to apply boundary changes.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {hardBoundaries.length === 0 ? (
+                <p className="text-sm text-gray-500">No boundaries set. Edit your profile to configure.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {HARD_BOUNDARY_OPTIONS.filter((o) => hardBoundaries.includes(o.key)).map((o) => (
+                    <li key={o.key} className="flex items-center gap-2 text-sm text-white">
+                      <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                      {o.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

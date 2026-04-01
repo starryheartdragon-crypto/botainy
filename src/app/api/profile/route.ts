@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
     const { data: profile, error } = await serviceClient()
       .from('users')
-      .select('id, username, bio, avatar_url')
+      .select('id, username, bio, avatar_url, hard_boundaries')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -78,8 +78,15 @@ export async function PUT(req: NextRequest) {
 
     console.log('[Profile PUT] User authenticated:', user.id)
     const body = await req.json()
-    const { username, bio, avatar_url } = body
-    console.log('[Profile PUT] Update data:', { username, bio, has_avatar: !!avatar_url })
+    const { username, bio, avatar_url, hard_boundaries } = body
+    console.log('[Profile PUT] Update data:', { username, bio, has_avatar: !!avatar_url, hard_boundaries })
+
+    // Validate hard_boundaries if provided
+    if (hard_boundaries !== undefined) {
+      if (!Array.isArray(hard_boundaries) || hard_boundaries.some((b: unknown) => typeof b !== 'string')) {
+        return NextResponse.json({ error: 'hard_boundaries must be an array of strings' }, { status: 400 })
+      }
+    }
 
     // Use service role to update (bypasses RLS)
     const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
@@ -91,6 +98,7 @@ export async function PUT(req: NextRequest) {
         username,
         bio,
         avatar_url,
+        ...(hard_boundaries !== undefined ? { hard_boundaries } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id)

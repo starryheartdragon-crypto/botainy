@@ -62,6 +62,9 @@ jobs:
       - name: Build OpenNext bundle
         run: npm run build:cf
 
+      - name: Stub @vercel/og to reduce bundle size
+        run: node scripts/patch-og.mjs
+
       - name: Ensure OpenRouter secret (preview)
         run: echo "$OPENROUTER_API_KEY" | npx wrangler secret put OPENROUTER_API_KEY --env preview
 
@@ -112,6 +115,9 @@ jobs:
 
       - name: Build OpenNext bundle
         run: npm run build:cf
+
+      - name: Stub @vercel/og to reduce bundle size
+        run: node scripts/patch-og.mjs
 
       - name: Ensure OpenRouter secret (production)
         run: echo "$OPENROUTER_API_KEY" | npx wrangler secret put OPENROUTER_API_KEY --env production

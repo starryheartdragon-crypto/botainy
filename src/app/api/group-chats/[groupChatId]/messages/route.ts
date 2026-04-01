@@ -6,7 +6,7 @@ import {
   resolveOpenRouterModel,
   resolveOpenRouterReferer,
 } from '@/lib/openrouterServer'
-import { buildContentRatingInstruction, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -386,6 +386,7 @@ async function generateBotReply({
   latestTriggerMessage,
   botsById,
   userPersona,
+  userHardBoundaries,
 }: {
   group: GroupChatContext
   bot: GroupBot
@@ -393,6 +394,7 @@ async function generateBotReply({
   latestTriggerMessage: string
   botsById: Map<string, GroupBot>
   userPersona: UserPersona | null
+  userHardBoundaries: string[]
   // is_nsfw is read from group.is_nsfw
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
@@ -421,10 +423,13 @@ async function generateBotReply({
       ].join('\n')
     : null
 
+  const hardBoundariesGuardrail = buildHardBoundariesGuardrail(userHardBoundaries)
+
   const systemPrompt = [
     `You are ${bot.name}. ${bot.personality}`,
     personaLine,
     buildContentRatingInstruction(group.is_nsfw),
+    hardBoundariesGuardrail ?? null,
     isRoleplayMode ? ROLEPLAY_FORMATTING_INSTRUCTIONS : null,
     ...(isRoleplayMode && group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
     FOURTH_WALL_MUSIC_GUARDRAIL,
@@ -726,8 +731,12 @@ export async function POST(
       : undefined
 
     const svc = serviceClient()
-    const { persona: userPersona } = await getActiveUserPersona(svc, groupChatId, user.id, requestedPersonaId)
-    const { bots: groupBots } = await getGroupBots(svc, groupChatId)
+    const [{ persona: userPersona }, { bots: groupBots }, userProfileRow] = await Promise.all([
+      getActiveUserPersona(svc, groupChatId, user.id, requestedPersonaId),
+      getGroupBots(svc, groupChatId),
+      svc.from('users').select('hard_boundaries').eq('id', user.id).maybeSingle(),
+    ])
+    const userHardBoundaries = (userProfileRow.data as { hard_boundaries?: string[] } | null)?.hard_boundaries ?? []
     const { data, error } = await svc
       .from('group_chat_messages')
       .insert({
@@ -813,6 +822,7 @@ export async function POST(
             latestTriggerMessage: triggerMessage.content,
             botsById,
             userPersona,
+            userHardBoundaries,
           })
 
           if (botReply.warning) {

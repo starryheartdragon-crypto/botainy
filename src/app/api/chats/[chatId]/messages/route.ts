@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
-import { buildContentRatingInstruction, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string }
@@ -164,15 +164,24 @@ export async function POST(
     }
 
     // Verify user owns this chat and get bot personality
-    const { data: chat, error: chatError } = await serviceClient
-      .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, bots(personality, name), personas(name, description)')
-      .eq('id', chatId)
-      .single()
+    const [{ data: chat, error: chatError }, { data: userProfile }] = await Promise.all([
+      serviceClient
+        .from('chats')
+        .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, bots(personality, name), personas(name, description)')
+        .eq('id', chatId)
+        .single(),
+      serviceClient
+        .from('users')
+        .select('hard_boundaries')
+        .eq('id', user.id)
+        .maybeSingle(),
+    ])
 
     if (chatError || !chat || chat.user_id !== user.id) {
       return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 403 })
     }
+
+    const hardBoundaries = (userProfile as { hard_boundaries?: string[] } | null)?.hard_boundaries ?? []
 
     const typedChat = chat as unknown as ChatWithRelations
     let personaContext: PersonaContext | null = firstRelation(typedChat.personas)
@@ -255,11 +264,14 @@ export async function POST(
       ].join('\n')
     })()
 
+    const hardBoundariesGuardrail = buildHardBoundariesGuardrail(hardBoundaries)
+
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
       ...(relationshipBlock ? [relationshipBlock] : []),
       buildContentRatingInstruction(typedChat.is_nsfw ?? false),
+      ...(hardBoundariesGuardrail ? [hardBoundariesGuardrail] : []),
       FOURTH_WALL_MUSIC_GUARDRAIL,
       `### **CRITICAL ROLEPLAY RULES**`,
       `- ALWAYS stay in character as ${botInfo.name}.`,

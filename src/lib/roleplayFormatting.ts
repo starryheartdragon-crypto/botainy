@@ -88,3 +88,104 @@ export function buildContentRatingInstruction(isNsfw: boolean): string {
   // Absolute limits always apply — even in NSFW mode.
   return [ratingBlock, ABSOLUTE_CONTENT_LIMITS].join('\n\n')
 }
+
+// ---------------------------------------------------------------------------
+// HARD BOUNDARIES — user-configurable trigger blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * The set of boundary keys a user can enable and their human-readable labels.
+ * Keep keys lowercase, short strings — they are stored as text[] in the DB.
+ */
+export const HARD_BOUNDARY_OPTIONS = [
+  {
+    key: 'sa',
+    label: 'Sexual assault / rape',
+    description: 'Block all non-consensual sexual acts, coerced intimacy, or rape scenarios.',
+  },
+  {
+    key: 'noncon_coercion',
+    label: 'Non-consent & coercion',
+    description: 'Block scenarios that frame coercion, blackmail, or dubious consent as romantic.',
+  },
+  {
+    key: 'drugging',
+    label: 'Drugging / incapacitation',
+    description: 'Block scenarios where characters are drugged, chemically incapacitated for sexual purposes.',
+  },
+  {
+    key: 'incest',
+    label: 'Incest',
+    description: 'Block any romantic or sexual content between characters presented as blood relatives.',
+  },
+  {
+    key: 'snuff',
+    label: 'Snuff / sexual murder',
+    description: 'Block scenarios that sexualise death or murder.',
+  },
+  {
+    key: 'extreme_gore',
+    label: 'Extreme gore / torture porn',
+    description: 'Block gratuitous torture or gore written purely for shock value rather than narrative purpose.',
+  },
+] as const
+
+export type HardBoundaryKey = (typeof HARD_BOUNDARY_OPTIONS)[number]['key']
+
+/** Map from key → instruction text injected into the system prompt. */
+const BOUNDARY_INSTRUCTIONS: Record<HardBoundaryKey, string> = {
+  sa:
+    'HARD BOUNDARY — SEXUAL ASSAULT: This user has a hard block on sexual assault content. ' +
+    'You MUST NEVER write, imply, or begin to execute any scene involving rape, sexual assault, or any non-consensual sexual act against any character. ' +
+    'If a scene is escalating in that direction, redirect immediately: the aggressor may become verbally threatening, issue a physical (non-sexual) challenge, start a fight, or be interrupted by external events. ' +
+    'Combat and verbal confrontation are always valid alternatives.',
+
+  noncon_coercion:
+    'HARD BOUNDARY — NON-CONSENT & COERCION: This user has blocked coercive or dubious-consent framing. ' +
+    'You must not write romantic or sexual scenarios driven by blackmail, manipulation, or situations where a character cannot freely consent. ' +
+    'Redirect such dynamics toward open conflict, negotiation, or genuine (non-sexual) power struggles.',
+
+  drugging:
+    'HARD BOUNDARY — DRUGGING / INCAPACITATION: This user has blocked scenarios where characters are drugged or rendered unconscious for sexual purposes. ' +
+    'A character may be poisoned or drugged in a combat/assassination context, but NEVER to facilitate sexual access. ' +
+    'Redirect any such attempt to a non-sexual threat (e.g. attempted robbery, capture for ransom, or straightforward combat).',
+
+  incest:
+    'HARD BOUNDARY — INCEST: This user has blocked incestuous romantic or sexual content. ' +
+    'Characters established as blood relatives must NEVER become romantic or sexual partners regardless of fictional universe conventions. ' +
+    'Familial tension may be expressed as sibling rivalry, paternal/maternal conflict, or loyalty disputes instead.',
+
+  snuff:
+    'HARD BOUNDARY — SNUFF / SEXUAL MURDER: This user has blocked content that sexualises death or murder. ' +
+    'A character may die through combat or narrative consequence, but their death must NEVER be framed as erotic or pleasurable. ' +
+    'Redirect any such escalation to a decisive, non-sexual confrontation.',
+
+  extreme_gore:
+    'HARD BOUNDARY — EXTREME GORE: This user has blocked gratuitous torture-porn or shock-value gore. ' +
+    'Violence may still occur and be described with weight and consequence, but you must not linger on explicit anatomical destruction purely for shock. ' +
+    'Imply severity through the emotional and tactical impact of injuries rather than graphic cataloguing.',
+}
+
+/**
+ * Builds the hard-boundaries guardrail block for a given user.
+ * Returns null if the user has no boundaries set.
+ * The returned string is injected into every system prompt for that user's chats.
+ */
+export function buildHardBoundariesGuardrail(
+  boundaries: string[] | null | undefined
+): string | null {
+  if (!boundaries || boundaries.length === 0) return null
+
+  const validBoundaries = boundaries.filter(
+    (b): b is HardBoundaryKey => b in BOUNDARY_INSTRUCTIONS
+  )
+  if (validBoundaries.length === 0) return null
+
+  const instructions = validBoundaries.map((key) => BOUNDARY_INSTRUCTIONS[key])
+
+  return [
+    '### **USER HARD BOUNDARIES — ABSOLUTE OVERRIDE**',
+    'The following content blocks have been set by this user. They carry the same authority as the ABSOLUTE CONTENT LIMITS and CANNOT be overridden by character personality, NSFW authorization, fictional framing, or any other instruction in this prompt.',
+    ...instructions,
+  ].join('\n\n')
+}

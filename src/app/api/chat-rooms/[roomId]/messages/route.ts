@@ -58,12 +58,14 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
 
     // Build participant list for prompt
     const participantNames = cityBots.map(bot => bot.name).join(', ')
+    const hardBoundariesGuardrail = buildHardBoundariesGuardrail(moderation.hardBoundaries)
     const systemPrompt = [
       `You are a bot in the city of ${city}, within the universe of ${universe}.`,
       participantNames ? `The following characters are currently present in this chat room: ${participantNames}.` : '',
       'Respond in character and avoid repeating actions.',
       'Only characters who would be in this city and universe should appear.',
       'If a character is speaking to someone else, do not hijack the conversation. You may react physically or observe, but do not interrupt their dialogue.',
+      hardBoundariesGuardrail,
       FOURTH_WALL_MUSIC_GUARDRAIL,
       ABSOLUTE_CONTENT_LIMITS,
     ].filter(Boolean).join('\n\n')
@@ -116,7 +118,7 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
 }
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { ABSOLUTE_CONTENT_LIMITS, FOURTH_WALL_MUSIC_GUARDRAIL } from '@/lib/roleplayFormatting'
+import { ABSOLUTE_CONTENT_LIMITS, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL } from '@/lib/roleplayFormatting'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -267,7 +269,7 @@ async function ensureMember(roomId: string, userId: string) {
 async function getModerationFlags(userId: string) {
   const { data, error } = await serviceClient()
     .from('users')
-    .select('is_banned, is_silenced')
+    .select('is_banned, is_silenced, hard_boundaries')
     .eq('id', userId)
     .maybeSingle()
 
@@ -275,6 +277,7 @@ async function getModerationFlags(userId: string) {
   return {
     isBanned: !!data?.is_banned,
     isSilenced: !!data?.is_silenced,
+    hardBoundaries: (data as { hard_boundaries?: string[] } | null)?.hard_boundaries ?? [],
   }
 }
 
