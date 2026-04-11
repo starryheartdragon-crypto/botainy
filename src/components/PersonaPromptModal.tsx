@@ -4,6 +4,18 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { scoreToStage } from "@/components/RelationshipContextPanel"
 
+type PersonaOption = {
+  id: string
+  name: string
+  description: string
+  avatar_url: string | null
+}
+
+interface PersonaPromptModalProps {
+  open: boolean
+  title?: string
+}
+
 function sliderBackground(score: number): string {
   const pct = ((score + 100) / 200) * 100
   if (pct < 50) {
@@ -191,68 +203,5 @@ export function PersonaPromptModal({
       </div>
     </div>
   )
-}
-type PersonaOption = {
-  id: string
-  name: string
-  description: string
-  avatar_url: string | null
-}
-interface PersonaPromptModalProps {
-  open: boolean
-  title?: string
-}
-
-                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-700 bg-emerald-900/40 text-emerald-200">
-                    TTRPG
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Relationship input */}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-300 mb-1">Relationship to bot (optional)</label>
-          <input
-            type="text"
-            value={relationship}
-            onChange={e => setRelationship(e.target.value)}
-            placeholder="e.g. Friends, rivals, mentor, etc."
-            className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-950 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
-            maxLength={80}
-          />
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-full border border-gray-700 text-gray-300 hover:border-gray-500"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(selectedPersonaId || null, relationship)}
-            className="px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-type PersonaOption = {
-  id: string
-  name: string
-  description: string
-  avatar_url: string | null
-}
-interface PersonaPromptModalProps {
-  open: boolean
-  title?: string
 }
 
