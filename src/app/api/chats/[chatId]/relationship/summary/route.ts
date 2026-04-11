@@ -26,7 +26,7 @@ type OpenRouterResponse = {
   error?: unknown
 }
 
-// POST /api/chats/[chatId]/relationship/summary
+// POST /api/chats/[chatId]/relationship/summary?personaId=xxx
 // Generates an AI narrative summary of the current relationship dynamic and saves it.
 export async function POST(
   req: NextRequest,
@@ -37,17 +37,31 @@ export async function POST(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { chatId } = await params
+    const personaId = req.nextUrl.searchParams.get('personaId')
+    if (!personaId) return NextResponse.json({ error: 'personaId is required' }, { status: 400 })
+
     const service = getServiceClient()
 
-    // Verify ownership and get chat relationship data
+    // Verify ownership + get bot name
     const { data: chat, error: chatError } = await service
       .from('chats')
-      .select('id, user_id, relationship_context, relationship_score, relationship_tags, relationship_events, bots(name), personas(name)')
+      .select('id, user_id, bots(name)')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .single()
 
     if (chatError || !chat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 })
+
+    // Get persona name and relationship data
+    const [{ data: persona }, { data: rel }] = await Promise.all([
+      service.from('personas').select('name').eq('id', personaId).maybeSingle(),
+      service
+        .from('chat_persona_relationships')
+        .select('relationship_context, relationship_score, relationship_tags, relationship_events')
+        .eq('chat_id', chatId)
+        .eq('persona_id', personaId)
+        .maybeSingle(),
+    ])
 
     // Get last 30 messages for context
     const { data: messages } = await service
@@ -58,10 +72,10 @@ export async function POST(
       .limit(30)
 
     const botName = Array.isArray(chat.bots) ? (chat.bots[0] as { name: string })?.name : (chat.bots as { name: string } | null)?.name ?? 'the bot'
-    const personaName = Array.isArray(chat.personas) ? (chat.personas[0] as { name: string })?.name : (chat.personas as { name: string } | null)?.name ?? 'the user'
-    const score = chat.relationship_score ?? 0
-    const tags = (chat.relationship_tags as string[] | null) ?? []
-    const backstory = chat.relationship_context ?? ''
+    const personaName = persona?.name ?? 'the user'
+    const score = (rel?.relationship_score as number | null) ?? 0
+    const tags = (rel?.relationship_tags as string[] | null) ?? []
+    const backstory = (rel?.relationship_context as string | null) ?? ''
 
     const recentExchange = (messages ?? [])
       .reverse()
@@ -104,8 +118,13 @@ export async function POST(
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
-    // Save summary to chat
-    await service.from('chats').update({ relationship_summary: summary }).eq('id', chatId)
+    // Save summary to the persona relationship row
+    await service
+      .from('chat_persona_relationships')
+      .upsert(
+        { chat_id: chatId, persona_id: personaId, relationship_summary: summary },
+        { onConflict: 'chat_id,persona_id' }
+      )
 
     return NextResponse.json({ summary })
   } catch (err: unknown) {

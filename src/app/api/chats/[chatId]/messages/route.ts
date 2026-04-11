@@ -17,11 +17,6 @@ type ChatWithRelations = {
   user_id: string
   bot_id: string
   is_nsfw: boolean | null
-  relationship_context: string | null
-  relationship_score: number | null
-  relationship_tags: string[] | null
-  relationship_events: RelationshipEvent[] | null
-  relationship_summary: string | null
   api_temperature: number | null
   response_length: number | null
   narrative_style: number | null
@@ -203,7 +198,7 @@ export async function POST(
     const [{ data: chat, error: chatError }, { data: userProfile }] = await Promise.all([
       serviceClient
         .from('chats')
-        .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, relationship_score, relationship_tags, relationship_events, relationship_summary, api_temperature, response_length, narrative_style, bots(personality, name, source_excerpts, example_dialogues, character_quotes), personas(name, description)')
+        .select('id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, bots(personality, name, source_excerpts, example_dialogues, character_quotes), personas(name, description)')
         .eq('id', chatId)
         .single(),
       serviceClient
@@ -290,55 +285,59 @@ export async function POST(
       ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
 
-    const relationshipBlock = (() => {
-      if (!personaContext) return null
-      const pName = personaContext.name
+    // Look up relationship data from the per-persona relationship table
+    let relationshipBlock: string | null = null
+    if (personaContext && personaId) {
+      const { data: rel } = await serviceClient
+        .from('chat_persona_relationships')
+        .select('relationship_context, relationship_score, relationship_tags, relationship_events, relationship_summary')
+        .eq('chat_id', chatId)
+        .eq('persona_id', personaId)
+        .maybeSingle()
 
-      const score = typedChat.relationship_score ?? 0
-      const tags = typedChat.relationship_tags ?? []
-      const events = typedChat.relationship_events ?? []
-      const backstory = typedChat.relationship_context?.trim()
-      const summary = typedChat.relationship_summary?.trim()
+      if (rel) {
+        const pName = personaContext.name
+        const score = (rel.relationship_score as number | null) ?? 0
+        const tags = (rel.relationship_tags as string[] | null) ?? []
+        const events = (rel.relationship_events as RelationshipEvent[] | null) ?? []
+        const backstory = (rel.relationship_context as string | null)?.trim()
+        const summary = (rel.relationship_summary as string | null)?.trim()
 
-      // Determine stage label
-      function scoreLabel(s: number): string {
-        if (s <= -76) return 'Archrivals'
-        if (s <= -51) return 'Bitter Enemies'
-        if (s <= -26) return 'Rivals'
-        if (s <= -11) return 'Cold Strangers'
-        if (s <= 10) return 'Neutral'
-        if (s <= 25) return 'Acquaintances'
-        if (s <= 50) return 'Friends'
-        if (s <= 75) return 'Close Friends'
-        if (s <= 90) return 'Deeply Bonded'
-        if (s <= 99) return 'Devoted'
-        return 'Lovers'
+        function scoreLabel(s: number): string {
+          if (s <= -76) return 'Archrivals'
+          if (s <= -51) return 'Bitter Enemies'
+          if (s <= -26) return 'Rivals'
+          if (s <= -11) return 'Cold Strangers'
+          if (s <= 10) return 'Neutral'
+          if (s <= 25) return 'Acquaintances'
+          if (s <= 50) return 'Friends'
+          if (s <= 75) return 'Close Friends'
+          if (s <= 90) return 'Deeply Bonded'
+          if (s <= 99) return 'Devoted'
+          return 'Lovers'
+        }
+
+        const hasAnyRelationshipInfo = backstory || summary || tags.length > 0 || events.length > 0 || score !== 0
+        if (hasAnyRelationshipInfo) {
+          const lines: string[] = [
+            `### **YOUR RELATIONSHIP WITH ${pName.toUpperCase()}**`,
+            `Current stage: **${scoreLabel(score)}** (${score > 0 ? '+' : ''}${score}/100)`,
+          ]
+          if (tags.length > 0) lines.push(`Relationship tags: ${tags.join(', ')}`)
+          if (summary) {
+            lines.push(`\nRelationship dynamic:\n${summary}`)
+          } else if (backstory) {
+            lines.push(`\nContext:\n${backstory}`)
+          }
+          if (events.length > 0) {
+            const eventLines = events.slice(-8).map((e) => `- ${e.date}: ${e.description}`).join('\n')
+            lines.push(`\nKey shared memories:\n${eventLines}`)
+          }
+          lines.push(`\nThis is the emotional truth between you and ${pName}. Do NOT state it plainly — embody it. Let it bleed through every glance, every pause, every word chosen or bitten back.`)
+          relationshipBlock = lines.join('\n')
+        }
       }
-
-      const hasAnyRelationshipInfo = backstory || summary || tags.length > 0 || events.length > 0 || score !== 0
-      if (!hasAnyRelationshipInfo) return null
-
-      const lines: string[] = [
-        `### **YOUR RELATIONSHIP WITH ${pName.toUpperCase()}**`,
-        `Current stage: **${scoreLabel(score)}** (${score > 0 ? '+' : ''}${score}/100)`,
-      ]
-
-      if (tags.length > 0) {
-        lines.push(`Relationship tags: ${tags.join(', ')}`)
-      }
-      if (summary) {
-        lines.push(`\nRelationship dynamic:\n${summary}`)
-      } else if (backstory) {
-        lines.push(`\nContext:\n${backstory}`)
-      }
-      if (events.length > 0) {
-        const eventLines = events.slice(-8).map((e) => `- ${e.date}: ${e.description}`).join('\n')
-        lines.push(`\nKey shared memories:\n${eventLines}`)
-      }
-      lines.push(`\nThis is the emotional truth between you and ${pName}. Do NOT state it plainly — embody it. Let it bleed through every glance, every pause, every word chosen or bitten back.`)
-
-      return lines.join('\n')
-    })()
+    }
 
     const hardBoundariesGuardrail = buildHardBoundariesGuardrail(hardBoundaries)
 

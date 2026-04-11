@@ -33,7 +33,7 @@ function parseEvents(raw: unknown): RelationshipEvent[] {
   )
 }
 
-// DELETE /api/chats/[chatId]/relationship/events/[eventId]
+// DELETE /api/chats/[chatId]/relationship/events/[eventId]?personaId=xxx
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ chatId: string; eventId: string }> }
@@ -43,18 +43,30 @@ export async function DELETE(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { chatId, eventId } = await params
+    const personaId = req.nextUrl.searchParams.get('personaId')
+    if (!personaId) return NextResponse.json({ error: 'personaId is required' }, { status: 400 })
+
     const service = getServiceClient()
 
-    const { data: chat, error: chatError } = await service
+    // Verify chat ownership
+    const { data: chatOwner, error: ownerError } = await service
       .from('chats')
-      .select('id, user_id, relationship_events')
+      .select('id')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
+    if (ownerError || !chatOwner) return NextResponse.json({ error: 'Chat not found' }, { status: 404 })
 
-    if (chatError || !chat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 })
+    const { data: rel, error: relError } = await service
+      .from('chat_persona_relationships')
+      .select('relationship_events')
+      .eq('chat_id', chatId)
+      .eq('persona_id', personaId)
+      .maybeSingle()
 
-    const events = parseEvents(chat.relationship_events)
+    if (relError || !rel) return NextResponse.json({ error: 'Relationship not found' }, { status: 404 })
+
+    const events = parseEvents(rel.relationship_events)
     const updated = events.filter((e) => e.id !== eventId)
 
     if (updated.length === events.length) {
@@ -62,9 +74,10 @@ export async function DELETE(
     }
 
     const { error: updateError } = await service
-      .from('chats')
+      .from('chat_persona_relationships')
       .update({ relationship_events: updated })
-      .eq('id', chatId)
+      .eq('chat_id', chatId)
+      .eq('persona_id', personaId)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 

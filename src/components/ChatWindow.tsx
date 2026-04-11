@@ -60,22 +60,9 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         if (resp.ok) {
           const data = await resp.json()
           setIsNsfw(!!data.is_nsfw)
-          setRelationshipData({
-            relationship_context: data.relationship_context ?? '',
-            relationship_score: typeof data.relationship_score === 'number' ? data.relationship_score : 0,
-            relationship_tags: Array.isArray(data.relationship_tags) ? data.relationship_tags : [],
-            relationship_events: Array.isArray(data.relationship_events) ? data.relationship_events : [],
-            relationship_summary: data.relationship_summary ?? null,
-          })
-          if (typeof data.api_temperature === 'number') {
-            setApiTemperature(data.api_temperature)
-          }
-          if (typeof data.response_length === 'number') {
-            setResponseLength(data.response_length)
-          }
-          if (typeof data.narrative_style === 'number') {
-            setNarrativeStyle(data.narrative_style)
-          }
+          if (typeof data.api_temperature === 'number') setApiTemperature(data.api_temperature)
+          if (typeof data.response_length === 'number') setResponseLength(data.response_length)
+          if (typeof data.narrative_style === 'number') setNarrativeStyle(data.narrative_style)
         }
       } catch {}
     }
@@ -85,6 +72,42 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     })
     fetchChat()
   }, [chatId])
+
+  // Load relationship data whenever the selected persona changes
+  useEffect(() => {
+    if (!selectedPersonaId) {
+      setRelationshipData({
+        relationship_context: '',
+        relationship_score: 0,
+        relationship_tags: [],
+        relationship_events: [],
+        relationship_summary: null,
+      })
+      return
+    }
+    let cancelled = false
+    const fetchRelationship = async () => {
+      try {
+        const headers = await getAuthHeaders()
+        const resp = await fetch(
+          `/api/chats/${chatId}/relationship?personaId=${encodeURIComponent(selectedPersonaId)}`,
+          { headers }
+        )
+        if (resp.ok && !cancelled) {
+          const data = await resp.json()
+          setRelationshipData({
+            relationship_context: data.relationship_context ?? '',
+            relationship_score: typeof data.relationship_score === 'number' ? data.relationship_score : 0,
+            relationship_tags: Array.isArray(data.relationship_tags) ? data.relationship_tags : [],
+            relationship_events: Array.isArray(data.relationship_events) ? data.relationship_events : [],
+            relationship_summary: data.relationship_summary ?? null,
+          })
+        }
+      } catch {}
+    }
+    void fetchRelationship()
+    return () => { cancelled = true }
+  }, [chatId, selectedPersonaId])
   // Save NSFW toggle
   const handleToggleNsfw = async () => {
     setSavingNsfw(true)
@@ -108,8 +131,9 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     }
   }
 
-  // Save relationship data (any subset of fields) to the chat
+  // Save relationship data (any subset of fields) to the per-persona relationship row
   const handleRelationshipSave = async (partial: Partial<RelationshipData>) => {
+    if (!selectedPersonaId) return
     try {
       const headers = await getAuthHeaders(true)
       const body: Record<string, unknown> = {}
@@ -125,11 +149,10 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       }
       if (Object.keys(body).length === 0) return
 
-      await fetch(`/api/chats/${chatId}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(body),
-      })
+      await fetch(
+        `/api/chats/${chatId}/relationship?personaId=${encodeURIComponent(selectedPersonaId)}`,
+        { method: 'PATCH', headers, body: JSON.stringify(body) }
+      )
     } catch {
       // non-critical
     }
