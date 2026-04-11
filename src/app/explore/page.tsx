@@ -598,7 +598,7 @@ export default function ExplorePage() {
     setRelationshipMeters(baseline)
   }
 
-  const handleStartChat = async (botId: string, personaId: string | null, relationship?: string) => {
+  const handleStartChat = async (botId: string, personaId: string | null, score: number, relationshipContext: string) => {
     try {
       setLoading(botId)
       
@@ -614,7 +614,7 @@ export default function ExplorePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ botId, personaId, relationship }),
+        body: JSON.stringify({ botId, personaId }),
       })
 
       if (!resp.ok) {
@@ -637,6 +637,28 @@ export default function ExplorePage() {
       }
 
       const newChat = await resp.json()
+
+      // Save the initial relationship data for this persona+chat if a persona was chosen
+      if (personaId && (score !== 0 || relationshipContext.trim())) {
+        try {
+          const body: Record<string, unknown> = { relationship_score: score }
+          if (relationshipContext.trim()) body.relationship_context = relationshipContext.trim()
+          await fetch(
+            `/api/chats/${newChat.id}/relationship?personaId=${encodeURIComponent(personaId)}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify(body),
+            }
+          )
+        } catch {
+          // non-critical — user can adjust in chat
+        }
+      }
+
       router.push(`/chat/${newChat.id}`)
     } catch (error) {
       console.error('Error starting chat:', error)
@@ -1091,12 +1113,12 @@ export default function ExplorePage() {
           setPersonaPromptOpen(false)
           setPendingBotId(null)
         }}
-        onConfirm={async (personaId, relationship) => {
+        onConfirm={async (personaId, score, relationshipContext) => {
           if (!pendingBotId) return
           const botId = pendingBotId
           setPersonaPromptOpen(false)
           setPendingBotId(null)
-          await handleStartChat(botId, personaId, relationship)
+          await handleStartChat(botId, personaId, score, relationshipContext)
         }}
       />
     </div>
