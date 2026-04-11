@@ -95,6 +95,7 @@ export function PersonaSelector({
       {selectedPersonaId && relationshipData && chatId && (
         <RelationshipContextPanel
           chatId={chatId}
+          personaId={selectedPersonaId}
           botName={botName ?? 'the bot'}
           personaName={personaName ?? null}
           data={relationshipData}
