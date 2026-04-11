@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, relationship_score, relationship_tags, relationship_events, relationship_summary, api_temperature, response_length, narrative_style, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -82,6 +82,10 @@ export async function GET(
       persona_id?: string | null
       is_nsfw?: boolean
       relationship_context?: string | null
+      relationship_score?: number | null
+      relationship_tags?: string[] | null
+      relationship_events?: unknown[] | null
+      relationship_summary?: string | null
       api_temperature?: number | null
       response_length?: number | null
       narrative_style?: number | null
@@ -146,6 +150,10 @@ export async function GET(
       persona_id: chat.persona_id ?? null,
       is_nsfw: chat.is_nsfw ?? false,
       relationship_context: chat.relationship_context ?? null,
+      relationship_score: chat.relationship_score ?? 0,
+      relationship_tags: chat.relationship_tags ?? [],
+      relationship_events: chat.relationship_events ?? [],
+      relationship_summary: chat.relationship_summary ?? null,
       api_temperature: chat.api_temperature ?? 0.9,
       response_length: chat.response_length ?? 1,
       narrative_style: chat.narrative_style ?? 1,
@@ -222,7 +230,7 @@ export async function PATCH(
     const { serviceClient } = getSupabaseClients()
 
     const body = await req.json()
-    const { is_nsfw, relationship_context, api_temperature, response_length, narrative_style } = body
+    const { is_nsfw, relationship_context, relationship_score, relationship_tags, api_temperature, response_length, narrative_style } = body
 
     const updates: Record<string, unknown> = {}
 
@@ -235,6 +243,18 @@ export async function PATCH(
         return NextResponse.json({ error: 'relationship_context must be a string or null' }, { status: 400 })
       }
       updates.relationship_context = relationship_context ?? null
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'relationship_score')) {
+      if (typeof relationship_score !== 'number' || relationship_score < -100 || relationship_score > 100) {
+        return NextResponse.json({ error: 'relationship_score must be a number between -100 and 100' }, { status: 400 })
+      }
+      updates.relationship_score = Math.round(relationship_score)
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'relationship_tags')) {
+      if (!Array.isArray(relationship_tags) || relationship_tags.some((t: unknown) => typeof t !== 'string')) {
+        return NextResponse.json({ error: 'relationship_tags must be an array of strings' }, { status: 400 })
+      }
+      updates.relationship_tags = (relationship_tags as string[]).slice(0, 10).map((t: string) => t.slice(0, 40))
     }
     if (Object.prototype.hasOwnProperty.call(body, 'api_temperature')) {
       if (typeof api_temperature !== 'number' || api_temperature < 0 || api_temperature > 2) {

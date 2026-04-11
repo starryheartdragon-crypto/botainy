@@ -36,6 +36,15 @@ export default function ProfilePage() {
   const [personaDeletingId, setPersonaDeletingId] = useState<string | null>(null)
   const [hardBoundaries, setHardBoundaries] = useState<string[]>([])
   const [originalHardBoundaries, setOriginalHardBoundaries] = useState<string[]>([])
+  const [privacy, setPrivacy] = useState({
+    show_bio: true,
+    show_avatar: true,
+    show_bots: true,
+    show_music: true,
+    show_connections_count: true,
+    show_join_date: true,
+  })
+  const [savingPrivacy, setSavingPrivacy] = useState(false)
 
   useEffect(() => {
     async function loadProfile() {
@@ -111,6 +120,21 @@ export default function ProfilePage() {
             setPersonas(Array.isArray(personasData.personas) ? personasData.personas : [])
           } else {
             setPersonas([])
+          }
+
+          const privacyResp = await fetch('/api/profile/privacy', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          })
+          if (privacyResp.ok) {
+            const privacyData = await privacyResp.json()
+            setPrivacy({
+              show_bio: privacyData.show_bio ?? true,
+              show_avatar: privacyData.show_avatar ?? true,
+              show_bots: privacyData.show_bots ?? true,
+              show_music: privacyData.show_music ?? true,
+              show_connections_count: privacyData.show_connections_count ?? true,
+              show_join_date: privacyData.show_join_date ?? true,
+            })
           }
         } else {
           const error = await resp.json()
@@ -297,6 +321,30 @@ export default function ProfilePage() {
     e.preventDefault()
     e.stopPropagation()
     setIsDragActive(false)
+  }
+
+  async function handlePrivacyToggle(key: keyof typeof privacy) {
+    const updated = { ...privacy, [key]: !privacy[key] }
+    setPrivacy(updated)
+    setSavingPrivacy(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+      const resp = await fetch('/api/profile/privacy', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ [key]: !privacy[key] }),
+      })
+      if (!resp.ok) {
+        setPrivacy(privacy) // revert
+        toast.error('Failed to save privacy setting')
+      }
+    } catch {
+      setPrivacy(privacy) // revert
+      toast.error('Failed to save privacy setting')
+    } finally {
+      setSavingPrivacy(false)
+    }
   }
 
   async function savePlaylist() {
@@ -950,6 +998,48 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Public Profile Privacy Settings */}
+        <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Public Profile Privacy</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Control what visitors can see on your public profile at{" "}
+              <span className="text-purple-400">/profile/{username || "you"}</span>.
+              Changes save instantly.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {(
+              [
+                { key: "show_bio" as const, label: "Bio", desc: "Show your bio text to visitors" },
+                { key: "show_avatar" as const, label: "Avatar", desc: "Show your profile picture" },
+                { key: "show_bots" as const, label: "Public Bots", desc: "Show your published bots" },
+                { key: "show_music" as const, label: "Music", desc: "Show your music/soundtrack" },
+                { key: "show_connections_count" as const, label: "Connections Count", desc: "Show how many connections you have" },
+                { key: "show_join_date" as const, label: "Join Date", desc: "Show when you joined" },
+              ] as const
+            ).map(({ key, label, desc }) => (
+              <label key={key} className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div>
+                  <p className="text-sm font-medium text-white group-hover:text-purple-300 transition">{label}</p>
+                  <p className="text-xs text-gray-400">{desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePrivacyToggle(key)}
+                  disabled={savingPrivacy}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${privacy[key] ? "bg-purple-600" : "bg-gray-700"}`}
+                  aria-pressed={privacy[key]}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${privacy[key] ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </button>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
     </div>

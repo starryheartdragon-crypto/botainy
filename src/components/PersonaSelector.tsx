@@ -1,29 +1,38 @@
 'use client'
 
 import { Persona } from '@/types'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { RelationshipContextPanel, RelationshipData } from './RelationshipContextPanel'
 
 interface PersonaSelectorProps {
   onSelectPersona: (personaId: string | null) => void
   selectedPersonaId?: string | null
   botName?: string
+  personaName?: string | null
+  chatId?: string
+  relationshipData?: RelationshipData
+  onRelationshipChange?: (data: Partial<RelationshipData>) => void
+  onRelationshipSave?: (data: Partial<RelationshipData>) => void
+  token?: string | null
+  // Legacy props kept for compatibility – no longer rendered
   relationshipContext?: string | null
-  onRelationshipChange?: (value: string) => void
-  onRelationshipSave?: (value: string) => void
+  onRelationshipUpdate?: (value: string) => void
 }
 
 export function PersonaSelector({
   onSelectPersona,
   selectedPersonaId,
   botName,
-  relationshipContext,
+  personaName,
+  chatId,
+  relationshipData,
   onRelationshipChange,
   onRelationshipSave,
+  token,
 }: PersonaSelectorProps) {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [loading, setLoading] = useState(true)
-  const relRef = useRef<HTMLTextAreaElement>(null)
 
   const isTtrpgPersona = (description: string | undefined) =>
     (description ?? "").startsWith("TTRPG Persona Sheet")
@@ -83,22 +92,21 @@ export function PersonaSelector({
         {loading && <p className="text-xs text-gray-500 mt-2">Loading personas...</p>}
       </div>
 
-      {selectedPersonaId && (
-        <div className="px-4 pb-4">
-          <label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wide">
-            Relationship context <span className="normal-case font-normal text-gray-500">(how {botName ?? 'the bot'} feels about your persona)</span>
-          </label>
-          <textarea
-            ref={relRef}
-            value={relationshipContext ?? ''}
-            onChange={(e) => onRelationshipChange?.(e.target.value)}
-            onBlur={(e) => onRelationshipSave?.(e.target.value)}
-            rows={2}
-            maxLength={400}
-            placeholder={`e.g. "Dunk is in love with her but believes he doesn't deserve her \u2014 he's tender and protective but always stops himself just before closing the distance."`}
-            className="w-full px-3 py-2 bg-gray-900 text-white text-sm rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-30 transition resize-none placeholder-gray-600"
-          />
-          <p className="text-[10px] text-gray-600 mt-1 text-right">{(relationshipContext ?? '').length}/400</p>
+      {selectedPersonaId && relationshipData && chatId && (
+        <RelationshipContextPanel
+          chatId={chatId}
+          botName={botName ?? 'the bot'}
+          personaName={personaName ?? null}
+          data={relationshipData}
+          onChange={(partial) => onRelationshipChange?.(partial)}
+          onSave={(partial) => onRelationshipSave?.(partial)}
+          token={token ?? null}
+        />
+      )}
+
+      {selectedPersonaId && !relationshipData && (
+        <div className="px-4 pb-3">
+          <p className="text-xs text-gray-600 italic">Loading relationship data…</p>
         </div>
       )}
     </div>

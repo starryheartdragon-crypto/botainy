@@ -11,6 +11,7 @@ import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
 import { SoundtrackDrawer } from './SoundtrackDrawer'
+import { RelationshipData } from './RelationshipContextPanel'
 
 type MessagePayload = ChatMessage & {
   chat_id?: string
@@ -31,7 +32,14 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialSelectedPersonaId)
   const [personaAvatarUrl, setPersonaAvatarUrl] = useState<string | null>(null)
   const [personaName, setPersonaName] = useState<string | null>(null)
-  const [relationshipContext, setRelationshipContext] = useState<string>('')
+  const [relationshipData, setRelationshipData] = useState<RelationshipData>({
+    relationship_context: '',
+    relationship_score: 0,
+    relationship_tags: [],
+    relationship_events: [],
+    relationship_summary: null,
+  })
+  const [authToken, setAuthToken] = useState<string | null>(null)
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
   const [apiTemperature, setApiTemperature] = useState(0.9)
@@ -43,7 +51,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const { user } = useAuthStore()
   const [isNsfw, setIsNsfw] = useState(false)
   const [savingNsfw, setSavingNsfw] = useState(false)
-  // Load chat NSFW state
+  // Load chat state including full relationship data
   useEffect(() => {
     const fetchChat = async () => {
       try {
@@ -52,7 +60,13 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         if (resp.ok) {
           const data = await resp.json()
           setIsNsfw(!!data.is_nsfw)
-          setRelationshipContext(data.relationship_context ?? '')
+          setRelationshipData({
+            relationship_context: data.relationship_context ?? '',
+            relationship_score: typeof data.relationship_score === 'number' ? data.relationship_score : 0,
+            relationship_tags: Array.isArray(data.relationship_tags) ? data.relationship_tags : [],
+            relationship_events: Array.isArray(data.relationship_events) ? data.relationship_events : [],
+            relationship_summary: data.relationship_summary ?? null,
+          })
           if (typeof data.api_temperature === 'number') {
             setApiTemperature(data.api_temperature)
           }
@@ -65,6 +79,10 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         }
       } catch {}
     }
+    // Also capture token for child components
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthToken(session?.access_token ?? null)
+    })
     fetchChat()
   }, [chatId])
   // Save NSFW toggle
@@ -90,14 +108,27 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     }
   }
 
-  // Save relationship context on blur
-  const handleRelationshipSave = async (value: string) => {
+  // Save relationship data (any subset of fields) to the chat
+  const handleRelationshipSave = async (partial: Partial<RelationshipData>) => {
     try {
       const headers = await getAuthHeaders(true)
+      const body: Record<string, unknown> = {}
+
+      if (Object.prototype.hasOwnProperty.call(partial, 'relationship_context')) {
+        body.relationship_context = partial.relationship_context ?? null
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, 'relationship_score')) {
+        body.relationship_score = partial.relationship_score
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, 'relationship_tags')) {
+        body.relationship_tags = partial.relationship_tags
+      }
+      if (Object.keys(body).length === 0) return
+
       await fetch(`/api/chats/${chatId}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ relationship_context: value.trim() || null }),
+        body: JSON.stringify(body),
       })
     } catch {
       // non-critical
@@ -527,9 +558,12 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         selectedPersonaId={selectedPersonaId}
         onSelectPersona={setSelectedPersonaId}
         botName={bot.name}
-        relationshipContext={relationshipContext}
-        onRelationshipChange={setRelationshipContext}
+        personaName={personaName}
+        chatId={chatId}
+        relationshipData={relationshipData}
+        onRelationshipChange={(partial) => setRelationshipData((prev) => ({ ...prev, ...partial }))}
         onRelationshipSave={handleRelationshipSave}
+        token={authToken}
       />
 
       {/* Messages */}
