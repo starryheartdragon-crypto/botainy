@@ -15,6 +15,7 @@ export interface RelationshipData {
 
 interface RelationshipContextPanelProps {
   chatId: string
+  personaId: string
   botName: string
   personaName: string | null
   data: RelationshipData
@@ -49,6 +50,7 @@ function sliderBackground(score: number): string {
 
 export function RelationshipContextPanel({
   chatId,
+  personaId,
   botName,
   personaName,
   data,
@@ -100,7 +102,7 @@ export function RelationshipContextPanel({
     if (!token) { toast.error('Not authenticated'); return }
     setAddingEvent(true)
     try {
-      const resp = await fetch(`/api/chats/${chatId}/relationship/events`, {
+      const resp = await fetch(`/api/chats/${chatId}/relationship/events?personaId=${encodeURIComponent(personaId)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: newEventDate.trim(), description: newEventDesc.trim() }),
@@ -120,7 +122,7 @@ export function RelationshipContextPanel({
   const handleDeleteEvent = async (eventId: string) => {
     if (!token) return
     try {
-      const resp = await fetch(`/api/chats/${chatId}/relationship/events/${eventId}`, {
+      const resp = await fetch(`/api/chats/${chatId}/relationship/events/${eventId}?personaId=${encodeURIComponent(personaId)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -136,7 +138,7 @@ export function RelationshipContextPanel({
     if (!token) { toast.error('Not authenticated'); return }
     setGeneratingSummary(true)
     try {
-      const resp = await fetch(`/api/chats/${chatId}/relationship/summary`, {
+      const resp = await fetch(`/api/chats/${chatId}/relationship/summary?personaId=${encodeURIComponent(personaId)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
