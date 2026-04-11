@@ -56,6 +56,8 @@ export async function POST_BOT_REPLY(req: NextRequest, { params }: { params: Pro
       // Add more cities/universes as needed
     }
 
+    const moderation = await getModerationFlags(user.id)
+
     // Build participant list for prompt
     const participantNames = cityBots.map(bot => bot.name).join(', ')
     const hardBoundariesGuardrail = buildHardBoundariesGuardrail(moderation.hardBoundaries)
