@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { BOT_UNIVERSES, UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
@@ -88,6 +88,102 @@ type DynamicEventResponse = {
   error?: string
 }
 
+const UNIVERSE_EMOJIS: Record<string, string> = {
+  // Anime & Animation
+  "Attack on Titan": "⚔️",
+  "Avatar: The Last Airbender": "🌊",
+  "DragonBall": "🐉",
+  "Jujutsu Kaisen": "🌀",
+  "Naruto": "🍃",
+  "One Piece": "⚓",
+  "Sailor moon": "🌙",
+  "Studio Ghibli": "🌿",
+  // Crime, Action & Drama
+  "Better Call Saul": "⚖️",
+  "Boardwalk Empire": "🎩",
+  "Breaking Bad": "⚗️",
+  "Bridgerton": "💌",
+  "Indiana Jones": "🎒",
+  "James Bond": "🕵️",
+  "John Wick": "🐕",
+  "Mission: Impossible": "💼",
+  "Peaky Blinders": "🎩",
+  "Ripper Street": "🔍",
+  "Sherlock Holmes": "🔍",
+  "The Sopranos": "🍝",
+  "The Wire": "📡",
+  // Fantasy & Magic
+  "GoT/HotD/KotSK": "🐉",
+  "His Dark Materials": "🌌",
+  "Lord of the Rings": "💍",
+  "Masters of the Universe": "⚡",
+  "Narnia": "🦁",
+  "Pirates of the Caribbean": "🏴‍☠️",
+  "The Immortals": "✨",
+  "Twilight": "🧛",
+  // Horror & Supernatural
+  "Ghosts (BBC)": "👻",
+  "Penny Dreadful": "🕯️",
+  "Stephen King": "😱",
+  "Supernatural": "🔮",
+  "The Conjuring": "👁️",
+  "The Walking Dead": "🧟",
+  // Mythology & History
+  "Celtic mythology": "🍀",
+  "Egyptian mythology": "🏺",
+  "Greek mythology": "🏛️",
+  "Hindu mythology": "🕉️",
+  "Historical figures": "📜",
+  "Japanese mythology": "⛩️",
+  "Norse mythology": "⚡",
+  "Roman mythology": "🦅",
+  "Slavic mythology": "🌲",
+  // Sci-Fi & Dystopian
+  "Alien": "👾",
+  "Avatar (James Cameron)": "🌿",
+  "Blade Runner": "🌆",
+  "Doctor Who": "⏰",
+  "Dune": "🏜️",
+  "Foundation": "🌌",
+  "Jurassic Park": "🦕",
+  "MonsterVerse (Godzilla/Kong)": "🦖",
+  "Planet of the Apes": "🐒",
+  "Startrek": "🖖",
+  "Starwars": "🚀",
+  "Stranger Things": "🔦",
+  "Terminator": "🤖",
+  "The Hunger Games": "🏹",
+  "The Matrix": "💊",
+  "The Maze Runner": "🌿",
+  "The X-Files": "👽",
+  // Superheroes & Comics
+  "DC": "🦇",
+  "Invincible": "🟡",
+  "Marvel": "⚡",
+  "The Boys": "🩸",
+  // Video Games & Tabletop
+  "Arcane/League of Legends": "⚗️",
+  "Assassin's Creed": "🦅",
+  "Castlevania": "🦇",
+  "CoD": "🎖️",
+  "cyberpunk": "🌆",
+  "dishonored": "🗡️",
+  "Elden Ring": "☀️",
+  "Fallout": "☢️",
+  "Final Fantasy": "⚔️",
+  "Halo (Game series)": "🪖",
+  "Mass Effect": "🌌",
+  "MTG": "🃏",
+  "Resident Evil": "🧟",
+  "TTRPG": "🎲",
+  "The Elder Scrolls": "🐉",
+  "The Witcher": "⚔️",
+  // General / Original
+  "OC (Original Character)": "✨",
+  "Sinners": "😈",
+  "Other": "🌐",
+}
+
 const NARRATIVE_GENRES = [
   'High Fantasy',
   'Gritty Sci-Fi',
@@ -158,6 +254,21 @@ export default function ExplorePage() {
   const [pendingBotId, setPendingBotId] = useState<string | null>(null)
   const [creatorBadges, setCreatorBadges] = useState<Record<string, CreatorBadge>>({})
   const router = useRouter()
+
+  const groupedBots = useMemo(() => {
+    const universeOrder = Object.values(UNIVERSE_CATEGORIES).flat() as string[]
+    const groups: Record<string, ExploreBot[]> = {}
+    for (const bot of bots) {
+      const key = bot.universe ?? "Other"
+      if (!groups[key]) groups[key] = []
+      groups[key].push(bot)
+    }
+    const orderedKeys = [
+      ...universeOrder.filter((u) => u in groups),
+      ...Object.keys(groups).filter((k) => !universeOrder.includes(k)),
+    ]
+    return orderedKeys.map((universe) => ({ universe, bots: groups[universe] }))
+  }, [bots])
 
   const loadCreatorBadges = useCallback(async (botRows: ExploreBot[]) => {
     const creatorIds = Array.from(new Set(botRows.map((bot) => bot.creator_id).filter(Boolean)))
@@ -886,12 +997,21 @@ export default function ExplorePage() {
           </select>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="space-y-10">
           {loadingBots && <div className="text-gray-400">Loading bots...</div>}
           {!loadingBots && bots.length === 0 && (
             <div className="text-gray-400">No bots match this name/universe search.</div>
           )}
-          {bots.map((b) => (
+          {!loadingBots && groupedBots.map(({ universe, bots: groupBots }) => (
+            <div key={universe}>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-2xl" role="img" aria-label={universe}>{UNIVERSE_EMOJIS[universe] ?? "✨"}</span>
+                <h2 className="text-lg font-bold text-white">{universe}</h2>
+                <div className="flex-1 h-px bg-gray-700 ml-1" />
+                <span className="text-xs text-gray-500">{groupBots.length} {groupBots.length === 1 ? "bot" : "bots"}</span>
+              </div>
+              <div className="grid md:grid-cols-3 gap-6">
+            {groupBots.map((b) => (
             <div key={b.id} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex flex-col">
               <div className="flex items-center gap-3 mb-3">
                 {b.avatar_url ? (
@@ -955,6 +1075,9 @@ export default function ExplorePage() {
                 >
                   {reporting === `user:${b.creator_id}` ? 'Reporting...' : 'Report Creator'}
                 </button>
+              </div>
+            </div>
+            ))}
               </div>
             </div>
           ))}

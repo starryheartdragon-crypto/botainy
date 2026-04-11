@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 
@@ -207,7 +208,11 @@ export default function ConnectionsPage() {
                 <div key={user.id} className="bg-gray-800/80 border border-gray-700 rounded-lg p-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium truncate flex items-center gap-1.5">
-                      <span>{user.username || 'User'}</span>
+                      {user.username ? (
+                        <Link href={`/profile/${user.username}`} className="hover:text-purple-300 transition">{user.username}</Link>
+                      ) : (
+                        <span>User</span>
+                      )}
                       {user.isAdmin && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/40 border border-purple-700 text-purple-200">Admin</span>
                       )}
@@ -248,7 +253,11 @@ export default function ConnectionsPage() {
                     <div key={item.id} className="bg-gray-900/70 border border-gray-700 rounded-lg p-3 flex items-center justify-between gap-3">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
-                          <span>{item.user?.username || 'User'}</span>
+                          {item.user?.username ? (
+                            <Link href={`/profile/${item.user.username}`} className="hover:text-purple-300 transition">{item.user.username}</Link>
+                          ) : (
+                            <span>User</span>
+                          )}
                           {item.user?.isAdmin && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/40 border border-purple-700 text-purple-200">Admin</span>
                           )}
@@ -296,7 +305,11 @@ export default function ConnectionsPage() {
                     <div key={item.id} className="bg-gray-900/70 border border-gray-700 rounded-lg p-3 flex items-center justify-between gap-3">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
-                          <span>{item.user?.username || 'User'}</span>
+                          {item.user?.username ? (
+                            <Link href={`/profile/${item.user.username}`} className="hover:text-purple-300 transition">{item.user.username}</Link>
+                          ) : (
+                            <span>User</span>
+                          )}
                           {item.user?.isAdmin && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/40 border border-purple-700 text-purple-200">Admin</span>
                           )}
@@ -335,7 +348,11 @@ export default function ConnectionsPage() {
                     <div key={item.id} className="bg-gray-900/70 border border-gray-700 rounded-lg p-3 flex items-center justify-between gap-3">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
-                          <span>{item.user?.username || 'User'}</span>
+                          {item.user?.username ? (
+                            <Link href={`/profile/${item.user.username}`} className="hover:text-purple-300 transition">{item.user.username}</Link>
+                          ) : (
+                            <span>User</span>
+                          )}
                           {item.user?.isAdmin && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/40 border border-purple-700 text-purple-200">Admin</span>
                           )}
