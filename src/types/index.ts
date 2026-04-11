@@ -9,6 +9,11 @@ export interface User {
   updatedAt: string
 }
 
+export interface ExampleDialogue {
+  user: string
+  bot: string
+}
+
 export interface Bot {
   id: string
   creatorId: string
@@ -16,6 +21,9 @@ export interface Bot {
   universe: string | null
   description: string
   personality: string
+  sourceExcerpts: string | null
+  exampleDialogues: ExampleDialogue[] | null
+  characterQuotes: string[] | null
   avatarUrl: string | null
   isPublished: boolean
   createdAt: string

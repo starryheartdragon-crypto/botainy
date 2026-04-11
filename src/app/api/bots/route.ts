@@ -7,6 +7,8 @@ const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABAS
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+type ExampleDialogue = { user: string; bot: string }
+
 type CreateBotPayload = {
   name?: string
   description?: string
@@ -21,6 +23,9 @@ type CreateBotPayload = {
   universe?: string
   avatarUrl?: string | null
   isPublished?: boolean
+  sourceExcerpts?: string | null
+  exampleDialogues?: ExampleDialogue[] | null
+  characterQuotes?: string[] | null
 }
 
 async function getUserFromAuthHeader(authHeader: string | null) {
@@ -180,6 +185,19 @@ export async function POST(req: NextRequest) {
     const universe = body.universe?.trim() || ''
     const avatarUrl = body.avatarUrl ?? null
     const isPublished = Boolean(body.isPublished)
+    const sourceExcerpts = typeof body.sourceExcerpts === 'string' ? body.sourceExcerpts.trim().slice(0, 6000) || null : null
+    const exampleDialogues = Array.isArray(body.exampleDialogues)
+      ? body.exampleDialogues.slice(0, 8).filter(
+          (d): d is ExampleDialogue =>
+            d !== null &&
+            typeof d === 'object' &&
+            typeof (d as ExampleDialogue).user === 'string' &&
+            typeof (d as ExampleDialogue).bot === 'string'
+        )
+      : null
+    const characterQuotes = Array.isArray(body.characterQuotes)
+      ? (body.characterQuotes as unknown[]).filter((q): q is string => typeof q === 'string').slice(0, 10)
+      : null
 
     if (!name || !description || !personality || !universe) {
       return NextResponse.json(
@@ -218,6 +236,9 @@ export async function POST(req: NextRequest) {
         universe,
         avatar_url: avatarUrl,
         is_published: isPublished,
+        source_excerpts: sourceExcerpts,
+        example_dialogues: exampleDialogues && exampleDialogues.length > 0 ? exampleDialogues : null,
+        character_quotes: characterQuotes && characterQuotes.length > 0 ? characterQuotes : null,
       })
       .select('id,is_published')
       .single()

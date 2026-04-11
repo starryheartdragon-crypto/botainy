@@ -4,7 +4,7 @@ import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterMo
 import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 
 type PersonaContext = { name: string; description: string | null }
-type BotInfo = { name: string; personality: string }
+type BotInfo = { name: string; personality: string; source_excerpts: string | null; example_dialogues: Array<{ user: string; bot: string }> | null; character_quotes: string[] | null }
 type ChatWithRelations = {
   id: string
   user_id: string
@@ -97,6 +97,31 @@ function buildNarrativeStyleInstruction(narrativeStyle: number | null | undefine
   return null
 }
 
+function buildSourceMaterialBlock(botInfo: BotInfo): string[] {
+  const parts: string[] = []
+
+  if (botInfo.character_quotes && botInfo.character_quotes.length > 0) {
+    const quotesText = botInfo.character_quotes.map((q) => `"${q}"`).join('\n')
+    parts.push(`### **ICONIC QUOTES — YOUR EXACT VOICE**\nThese are real lines from your canon. Study the rhythm, vocabulary, and tone. This is how you sound:\n${quotesText}`)
+  }
+
+  if (botInfo.source_excerpts && botInfo.source_excerpts.trim()) {
+    parts.push(`### **SOURCE MATERIAL — CANON REFERENCE**\nThe following is authentic material from the source canon. Use it to anchor your voice, mannerisms, and worldview:\n${botInfo.source_excerpts.trim()}`)
+  }
+
+  if (botInfo.example_dialogues && botInfo.example_dialogues.length > 0) {
+    const dialogueLines = botInfo.example_dialogues
+      .filter((d) => d.user?.trim() && d.bot?.trim())
+      .map((d) => `User: ${d.user.trim()}\n${botInfo.name}: ${d.bot.trim()}`)
+      .join('\n\n')
+    if (dialogueLines) {
+      parts.push(`### **EXAMPLE CONVERSATIONS — HOW YOU RESPOND**\nThese demonstrate exactly how you engage. Match this tone and style:\n${dialogueLines}`)
+    }
+  }
+
+  return parts
+}
+
 // GET /api/chats/[chatId]/messages - Get messages for a chat
 export async function GET(
   req: NextRequest,
@@ -167,7 +192,7 @@ export async function POST(
     const [{ data: chat, error: chatError }, { data: userProfile }] = await Promise.all([
       serviceClient
         .from('chats')
-        .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, bots(personality, name), personas(name, description)')
+        .select('id, user_id, bot_id, persona_id, is_nsfw, relationship_context, api_temperature, response_length, narrative_style, bots(personality, name, source_excerpts, example_dialogues, character_quotes), personas(name, description)')
         .eq('id', chatId)
         .single(),
       serviceClient
@@ -281,6 +306,7 @@ export async function POST(
       ...(typedChat.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
       ...(buildResponseLengthInstruction(typedChat.response_length) ? [buildResponseLengthInstruction(typedChat.response_length)!] : []),
       ...(buildNarrativeStyleInstruction(typedChat.narrative_style) ? [buildNarrativeStyleInstruction(typedChat.narrative_style)!] : []),
+      ...buildSourceMaterialBlock(botInfo),
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')

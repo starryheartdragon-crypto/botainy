@@ -39,6 +39,9 @@ type GroupBot = {
   name: string
   personality: string
   avatar_url: string | null
+  source_excerpts: string | null
+  example_dialogues: Array<{ user: string; bot: string }> | null
+  character_quotes: string[] | null
 }
 
 type OpenRouterResponse = {
@@ -379,6 +382,31 @@ async function getActiveUserPersona(
   }
 }
 
+function buildGroupSourceMaterialBlock(bot: GroupBot): string[] {
+  const parts: string[] = []
+
+  if (bot.character_quotes && bot.character_quotes.length > 0) {
+    const quotesText = bot.character_quotes.map((q) => `"${q}"`).join('\n')
+    parts.push(`### **ICONIC QUOTES — YOUR EXACT VOICE**\nThese are real lines from your canon. Study the rhythm, vocabulary, and tone. This is how you sound:\n${quotesText}`)
+  }
+
+  if (bot.source_excerpts && bot.source_excerpts.trim()) {
+    parts.push(`### **SOURCE MATERIAL — CANON REFERENCE**\nThe following is authentic material from the source canon. Use it to anchor your voice, mannerisms, and worldview:\n${bot.source_excerpts.trim()}`)
+  }
+
+  if (bot.example_dialogues && bot.example_dialogues.length > 0) {
+    const dialogueLines = bot.example_dialogues
+      .filter((d) => d.user?.trim() && d.bot?.trim())
+      .map((d) => `User: ${d.user.trim()}\n${bot.name}: ${d.bot.trim()}`)
+      .join('\n\n')
+    if (dialogueLines) {
+      parts.push(`### **EXAMPLE CONVERSATIONS — HOW YOU RESPOND**\nThese demonstrate exactly how you engage. Match this tone and style:\n${dialogueLines}`)
+    }
+  }
+
+  return parts
+}
+
 async function generateBotReply({
   group,
   bot,
@@ -438,6 +466,7 @@ async function generateBotReply({
     ...(!isRoleplayMode && group.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
     buildResponseLengthInstruction(group.response_length),
     buildNarrativeStyleInstruction(group.narrative_style),
+    ...buildGroupSourceMaterialBlock(bot),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -617,7 +646,7 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
 
   const { data: botRows, error: botError } = await svc
     .from('bots')
-    .select('id, name, personality, avatar_url')
+    .select('id, name, personality, avatar_url, source_excerpts, example_dialogues, character_quotes')
     .in('id', botIds)
 
   if (botError) {
@@ -633,6 +662,9 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
       name: String(row.name || 'Bot'),
       personality: String(row.personality || ''),
       avatar_url: typeof row.avatar_url === 'string' ? row.avatar_url : null,
+      source_excerpts: typeof row.source_excerpts === 'string' ? row.source_excerpts : null,
+      example_dialogues: Array.isArray(row.example_dialogues) ? row.example_dialogues as Array<{ user: string; bot: string }> : null,
+      character_quotes: Array.isArray(row.character_quotes) ? row.character_quotes as string[] : null,
     }))
     .filter((bot) => bot.id.length > 0)
 

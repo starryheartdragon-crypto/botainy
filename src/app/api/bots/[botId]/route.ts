@@ -6,6 +6,8 @@ const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABAS
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+type ExampleDialogue = { user: string; bot: string }
+
 type UpdateBotPayload = {
   name?: string
   description?: string
@@ -20,6 +22,9 @@ type UpdateBotPayload = {
   universe?: string
   avatarUrl?: string | null
   isPublished?: boolean
+  sourceExcerpts?: string | null
+  exampleDialogues?: ExampleDialogue[] | null
+  characterQuotes?: string[] | null
 }
 
 async function getUserFromAuthHeader(authHeader: string | null) {
@@ -73,6 +78,9 @@ export async function PATCH(
       universe?: string
       avatar_url?: string | null
       is_published?: boolean
+      source_excerpts?: string | null
+      example_dialogues?: ExampleDialogue[] | null
+      character_quotes?: string[] | null
     } = {}
 
     if (typeof body.name === 'string') {
@@ -160,6 +168,32 @@ export async function PATCH(
 
     if (typeof body.isPublished === 'boolean') {
       updateData.is_published = body.isPublished
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'sourceExcerpts')) {
+      updateData.source_excerpts = typeof body.sourceExcerpts === 'string'
+        ? body.sourceExcerpts.trim().slice(0, 6000) || null
+        : null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'exampleDialogues')) {
+      const raw = body.exampleDialogues
+      updateData.example_dialogues = Array.isArray(raw)
+        ? raw.slice(0, 8).filter(
+            (d): d is ExampleDialogue =>
+              d !== null &&
+              typeof d === 'object' &&
+              typeof (d as ExampleDialogue).user === 'string' &&
+              typeof (d as ExampleDialogue).bot === 'string'
+          )
+        : null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'characterQuotes')) {
+      const raw = body.characterQuotes
+      updateData.character_quotes = Array.isArray(raw)
+        ? (raw as unknown[]).filter((q): q is string => typeof q === 'string').slice(0, 10)
+        : null
     }
 
     if (Object.keys(updateData).length === 0) {

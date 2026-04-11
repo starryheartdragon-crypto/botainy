@@ -31,6 +31,9 @@ export default function CreateBotPage() {
   const [botRules, setBotRules] = useState("")
   const [botStyle, setBotStyle] = useState("")
   const [botSecrets, setBotSecrets] = useState("")
+  const [botSourceExcerpts, setBotSourceExcerpts] = useState("")
+  const [botCharacterQuotes, setBotCharacterQuotes] = useState("")
+  const [botExampleDialogues, setBotExampleDialogues] = useState<Array<{ user: string; bot: string }>>([{ user: "", bot: "" }])
   const [botPublishNow, setBotPublishNow] = useState(true)
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
   const [botTtrpgRole, setBotTtrpgRole] = useState<"NPC" | "DM" | "PC" | "Encounter">("NPC")
@@ -524,6 +527,13 @@ export default function CreateBotPage() {
           personality: finalPersonality,
           avatarUrl: botAvatarUrl,
           isPublished: botPublishNow,
+          sourceExcerpts: botSourceExcerpts.trim() || null,
+          characterQuotes: botCharacterQuotes
+            .split("\n")
+            .map((q) => q.trim())
+            .filter(Boolean)
+            .slice(0, 10),
+          exampleDialogues: botExampleDialogues.filter((d) => d.user.trim() && d.bot.trim()),
         }),
       })
 
@@ -550,6 +560,9 @@ export default function CreateBotPage() {
       setBotRules("")
       setBotStyle("")
       setBotTtrpgRole("NPC")
+      setBotSourceExcerpts("")
+      setBotCharacterQuotes("")
+      setBotExampleDialogues([{ user: "", bot: "" }])
 
       setBotPcClassArchetype("")
       setBotPcAncestrySpecies("")
@@ -1054,6 +1067,97 @@ export default function CreateBotPage() {
                       className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                       rows={3}
                     />
+                  </div>
+
+                  <div className="border-t border-gray-700 pt-4">
+                    <h3 className="text-sm font-bold text-purple-300 uppercase tracking-wide mb-1">Source Material</h3>
+                    <p className="text-xs text-gray-500 mb-3">Paste excerpts from scripts, books, or transcripts that show how this character actually speaks. This is the most powerful way to nail their voice.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Iconic Quotes</label>
+                    <textarea
+                      value={botCharacterQuotes}
+                      onChange={(e) => setBotCharacterQuotes(e.target.value)}
+                      placeholder={"Enter one quote per line:\n\"I am inevitable.\"\n\"With great power comes great responsibility.\""}
+                      className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      rows={4}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Up to 10 quotes, one per line. Teaches the AI the character&apos;s signature phrases.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Script / Book Excerpts</label>
+                    <textarea
+                      value={botSourceExcerpts}
+                      onChange={(e) => setBotSourceExcerpts(e.target.value)}
+                      placeholder="Paste the most representative scenes, dialogue, or passages from their source material here (up to ~5,000 characters)..."
+                      className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      rows={6}
+                      maxLength={6000}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{botSourceExcerpts.length}/6000 characters.</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-300">Example Conversations</label>
+                      <button
+                        type="button"
+                        onClick={() => setBotExampleDialogues((prev) => [...prev, { user: "", bot: "" }])}
+                        disabled={botExampleDialogues.length >= 8}
+                        className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        + Add example
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">Show the AI exactly how this character responds. Up to 8 pairs.</p>
+                    <div className="space-y-3">
+                      {botExampleDialogues.map((pair, idx) => (
+                        <div key={idx} className="bg-gray-900 border border-gray-700 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400 font-semibold">Example {idx + 1}</span>
+                            {botExampleDialogues.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setBotExampleDialogues((prev) => prev.filter((_, i) => i !== idx))}
+                                className="text-xs text-red-400 hover:text-red-300"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">User says:</label>
+                            <input
+                              type="text"
+                              value={pair.user}
+                              onChange={(e) =>
+                                setBotExampleDialogues((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, user: e.target.value } : p))
+                                )
+                              }
+                              placeholder="What the user might say..."
+                              className="w-full p-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">{botName.trim() || "Character"} responds:</label>
+                            <textarea
+                              value={pair.bot}
+                              onChange={(e) =>
+                                setBotExampleDialogues((prev) =>
+                                  prev.map((p, i) => (i === idx ? { ...p, bot: e.target.value } : p))
+                                )
+                              }
+                              placeholder="How the character would actually respond..."
+                              rows={2}
+                              className="w-full p-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
