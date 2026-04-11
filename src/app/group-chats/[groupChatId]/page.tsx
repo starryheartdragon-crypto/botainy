@@ -23,6 +23,17 @@ interface GroupChatInfo {
   name: string
   description: string | null
   creator_id: string
+  group_type?: string | null
+  dm_mode?: string | null
+  dm_user_id?: string | null
+}
+
+interface BestiaryEntry {
+  botId: string
+  name: string
+  avatarUrl: string | null
+  isEncounter: boolean
+  active: boolean
 }
 
 export default function GroupChatDetailPage() {
@@ -54,6 +65,18 @@ export default function GroupChatDetailPage() {
 
   // NSFW toggle state
   const [isNsfw, setIsNsfw] = useState(false)
+
+  // Bestiary panel state
+  const [bestiaryOpen, setBestiaryOpen] = useState(false)
+  const [bestiary, setBestiary] = useState<BestiaryEntry[]>([])
+  const [bestiaryLoading, setBestiaryLoading] = useState(false)
+  const [bestiaryActionBotId, setBestiaryActionBotId] = useState<string | null>(null)
+
+  const isTtrpg = group?.group_type === 'ttrpg'
+  const isDm = !!(group && userId && (
+    group.creator_id === userId ||
+    (group.dm_mode === 'user' && group.dm_user_id === userId)
+  ))
   const [savingNsfw, setSavingNsfw] = useState(false)
 
   // Soundtrack drawer state
@@ -116,6 +139,63 @@ export default function GroupChatDetailPage() {
       setSavingNsfw(false)
     }
   }
+
+  // ── Bestiary helpers ────────────────────────────────────────────────────
+  const loadBestiary = async () => {
+    setBestiaryLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const resp = await fetch(`/api/group-chats/${groupChatId}/bestiary`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        setBestiary(data.bestiary ?? [])
+      }
+    } catch {}
+    finally { setBestiaryLoading(false) }
+  }
+
+  const handleSummon = async (botId: string) => {
+    setBestiaryActionBotId(botId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const resp = await fetch(`/api/group-chats/${groupChatId}/bestiary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'summon', botId }),
+      })
+      if (resp.ok) await loadBestiary()
+      else alert('Failed to summon bot')
+    } catch { alert('Failed to summon bot') }
+    finally { setBestiaryActionBotId(null) }
+  }
+
+  const handleEject = async (botId: string) => {
+    setBestiaryActionBotId(botId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const resp = await fetch(`/api/group-chats/${groupChatId}/bestiary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: 'eject', botId }),
+      })
+      if (resp.ok) await loadBestiary()
+      else alert('Failed to eject bot')
+    } catch { alert('Failed to eject bot') }
+    finally { setBestiaryActionBotId(null) }
+  }
+
+  useEffect(() => {
+    if (isTtrpg && isDm && bestiaryOpen) {
+      loadBestiary()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTtrpg, isDm, bestiaryOpen])
+  // ────────────────────────────────────────────────────────────────────────
 
   const handleCopySummary = () => {
     navigator.clipboard.writeText(summaryText)
@@ -480,6 +560,17 @@ export default function GroupChatDetailPage() {
       <div className="border-b border-gray-800 px-4 sm:px-6 py-4 bg-gray-950/80 relative">
         <h1 className="text-lg sm:text-xl font-semibold">{group?.name || 'Group Chat'}</h1>
         <p className="text-xs sm:text-sm text-gray-400 mt-1">{group?.description || 'Private group conversation'}</p>
+        {/* Bestiary Button — DM only, TTRPG groups */}
+        {isTtrpg && isDm && (
+          <button
+            onClick={() => setBestiaryOpen(true)}
+            className="absolute top-4 right-36 z-40 p-3 rounded-full bg-amber-700 hover:bg-amber-600 text-white shadow-lg text-2xl"
+            title="Bestiary — Summon / Eject encounter bots"
+            style={{ boxShadow: '0 4px 24px rgba(180,100,0,0.3)' }}
+          >
+            <span role="img" aria-label="Bestiary">⚔️</span>
+          </button>
+        )}
         {/* Soundtrack Button */}
         <button
           onClick={handleOpenDrawer}
@@ -721,6 +812,77 @@ export default function GroupChatDetailPage() {
             <h2 className="text-xl font-bold mb-4 text-gray-900">Group Chat Summary</h2>
             <textarea readOnly value={summaryText} className="w-full h-40 p-2 border rounded mb-4 text-sm bg-gray-100 text-gray-900" />
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mb-2" onClick={handleCopySummary}>Copy Summary</button>
+          </div>
+        </div>
+      )}
+
+      {/* Bestiary Panel — slide-in from right */}
+      {bestiaryOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setBestiaryOpen(false)}
+          />
+          {/* Panel */}
+          <div className="relative z-10 w-80 max-w-full h-full bg-gray-900 shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800">
+              <h2 className="text-base font-bold text-amber-400">⚔️ Bestiary</h2>
+              <button
+                onClick={() => setBestiaryOpen(false)}
+                className="text-gray-400 hover:text-white text-lg leading-none"
+              >✕</button>
+            </div>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {bestiaryLoading && (
+                <p className="text-sm text-gray-400 text-center mt-8">Loading bestiary…</p>
+              )}
+              {!bestiaryLoading && bestiary.length === 0 && (
+                <p className="text-sm text-gray-500 text-center mt-8">No encounter bots in this bestiary.</p>
+              )}
+              {!bestiaryLoading && bestiary.map((entry) => (
+                <div
+                  key={entry.botId}
+                  className="flex items-center gap-3 rounded-lg bg-gray-800 p-3 border border-gray-700"
+                >
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
+                    {entry.avatarUrl
+                      ? <img src={entry.avatarUrl} alt={entry.name} className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-lg">🐉</div>
+                    }
+                  </div>
+                  {/* Name / status */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{entry.name}</p>
+                    {entry.active
+                      ? <span className="text-xs text-green-400">● Active in chat</span>
+                      : <span className="text-xs text-gray-500">Idle</span>
+                    }
+                  </div>
+                  {/* Action button */}
+                  {entry.active ? (
+                    <button
+                      disabled={bestiaryActionBotId === entry.botId}
+                      onClick={() => handleEject(entry.botId)}
+                      className="px-3 py-1 rounded text-xs font-semibold bg-red-700 hover:bg-red-600 text-white disabled:opacity-50"
+                    >
+                      {bestiaryActionBotId === entry.botId ? '…' : 'Eject'}
+                    </button>
+                  ) : (
+                    <button
+                      disabled={bestiaryActionBotId === entry.botId}
+                      onClick={() => handleSummon(entry.botId)}
+                      className="px-3 py-1 rounded text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
+                    >
+                      {bestiaryActionBotId === entry.botId ? '…' : 'Summon'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

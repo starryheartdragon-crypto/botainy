@@ -30,6 +30,7 @@ export default function GroupChatsPage() {
   const [newFocus, setNewFocus] = useState<GroupFocus>("general");
   const [newBots, setNewBots] = useState<string[]>([]);
   const [newUsers, setNewUsers] = useState<string[]>([]);
+  const [newBestiary, setNewBestiary] = useState<string[]>([]);
 
   const [newScenario, setNewScenario] = useState("");
   const [newSetting, setNewSetting] = useState("");
@@ -58,6 +59,9 @@ export default function GroupChatsPage() {
   const [botOptions, setBotOptions] = useState<SelectableBot[]>([]);
   const [botsLoading, setBotsLoading] = useState(false);
   const [botsLoadError, setBotsLoadError] = useState("");
+
+  const [bestiaryOptions, setBestiaryOptions] = useState<SelectableBot[]>([]);
+  const [bestiaryLoading, setBestiaryLoading] = useState(false);
 
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -209,6 +213,38 @@ export default function GroupChatsPage() {
     [connectedUsers]
   );
 
+  // Load TTRPG Encounter bots for the bestiary picker whenever the focus switches to ttrpg
+  useEffect(() => {
+    if (newFocus !== "ttrpg") {
+      setBestiaryOptions([]);
+      setNewBestiary([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setBestiaryLoading(true);
+      try {
+        const resp = await fetch("/api/bots?universe=TTRPG");
+        const payload = await resp.json().catch(() => null);
+        if (!resp.ok) return;
+        const bots = Array.isArray((payload as { bots?: unknown[] })?.bots)
+          ? (payload as { bots: Array<{ id: string; name: string; universe?: string | null }> }).bots
+          : [];
+        if (!cancelled) {
+          setBestiaryOptions(
+            bots
+              .filter((b) => Boolean(b?.id) && Boolean(b?.name))
+              .map((b) => ({ id: b.id, name: b.name, universe: b.universe ?? null }))
+          );
+        }
+      } finally {
+        if (!cancelled) setBestiaryLoading(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [newFocus]);
+
   const selectedBotNames = useMemo(
     () => newBots.map((id) => botOptions.find((bot) => bot.id === id)?.name).filter((n): n is string => Boolean(n)),
     [botOptions, newBots]
@@ -263,6 +299,7 @@ export default function GroupChatsPage() {
   useEffect(() => {
     if (newGmMode !== "bot") {
       setNewBotGmId("");
+      setNewBestiary([]);
     }
   }, [newGmMode]);
 
@@ -377,6 +414,7 @@ export default function GroupChatsPage() {
             : [newScenario.trim(), newSetting.trim()].filter(Boolean).join(" - ") || null,
         rules: rules || null,
         personaRelationshipContext: newCharacterRelationships.trim() || null,
+        bestiaryBotIds: newFocus === "ttrpg" ? newBestiary : [],
       };
 
       const resp = await fetch("/api/group-chats", {
@@ -583,6 +621,41 @@ export default function GroupChatsPage() {
                   </select>
                 </div>
               )}
+
+              {/* Encounter Bestiary — pre-linked encounter bots, inactive until summoned */}
+              <div>
+                <label className="mb-1 block text-sm font-medium">Encounter Bestiary</label>
+                <p className="mb-2 text-xs text-gray-400">Select Encounter bots that can be summoned mid-session by the DM. They won&apos;t join until triggered.</p>
+                <div className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2">
+                  {bestiaryLoading ? (
+                    <div className="text-xs text-gray-400 py-2">Loading encounter bots...</div>
+                  ) : bestiaryOptions.length === 0 ? (
+                    <div className="text-xs text-gray-400 py-2">No TTRPG Encounter bots found. Create one on the /create page with TTRPG universe and Encounter role.</div>
+                  ) : (
+                    <div className="flex flex-col max-h-32 overflow-y-auto">
+                      {bestiaryOptions.map((b) => (
+                        <label key={b.id} className="flex items-center space-x-2 py-1">
+                          <input
+                            type="checkbox"
+                            value={b.id}
+                            checked={newBestiary.includes(b.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewBestiary((prev) => [...prev, b.id]);
+                              } else {
+                                setNewBestiary((prev) => prev.filter((id) => id !== b.id));
+                              }
+                            }}
+                            className="accent-amber-500"
+                          />
+                          <span className="text-sm">{b.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-1 text-xs text-gray-400">Bestiary: {newBestiary.length} selected</div>
+                </div>
+              </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium">Player Slots (Character Sheets)</label>

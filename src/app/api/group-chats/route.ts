@@ -168,6 +168,7 @@ export async function POST(req: NextRequest) {
       : []
 
     const botIdsRaw = Array.isArray(body?.botIds) ? body.botIds : []
+    const bestiaryBotIdsRaw = Array.isArray(body?.bestiaryBotIds) ? body.bestiaryBotIds : []
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'Group name required' }, { status: 400 })
@@ -426,6 +427,49 @@ export async function POST(req: NextRequest) {
 
       if (botsInsertError) {
         return NextResponse.json({ error: botsInsertError.message }, { status: 500 })
+      }
+    }
+
+    // Insert bestiary bots (encounter roster — inactive until summoned)
+    if (groupType === 'ttrpg' && bestiaryBotIdsRaw.length > 0) {
+      const bestiaryIds = Array.from(
+        new Set<string>(
+          bestiaryBotIdsRaw
+            .map((id: unknown) => String(id || '').trim())
+            .filter((id: string): id is string => id.length > 0 && isUuid(id))
+        )
+      )
+
+      if (bestiaryIds.length > 0) {
+        const { data: bestiaryBots, error: bestiaryCheckError } = await serviceClient()
+          .from('bots')
+          .select('id, creator_id, is_published')
+          .in('id', bestiaryIds)
+
+        if (bestiaryCheckError) {
+          return NextResponse.json({ error: bestiaryCheckError.message }, { status: 500 })
+        }
+
+        const unauthorizedBestiary = (bestiaryBots || []).find(
+          (bot) => bot.creator_id !== user.id && !bot.is_published
+        )
+        if (unauthorizedBestiary) {
+          return NextResponse.json({ error: 'Cannot add private bots you do not own to the bestiary' }, { status: 403 })
+        }
+
+        const { error: bestiaryInsertError } = await serviceClient()
+          .from('group_chat_bestiary')
+          .insert(
+            bestiaryIds.map((botId) => ({
+              group_chat_id: groupChat.id,
+              bot_id: botId,
+              added_by: user.id,
+            }))
+          )
+
+        if (bestiaryInsertError) {
+          return NextResponse.json({ error: bestiaryInsertError.message }, { status: 500 })
+        }
       }
     }
 

@@ -28,6 +28,61 @@ const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
 /** Maximum number of sequential bot replies triggered between two human messages. */
 const MAX_MULTI_BOT_TURNS = 3
 
+// ---------------------------------------------------------------------------
+// Bestiary helpers — auto summon / eject via DM signals
+// ---------------------------------------------------------------------------
+
+/**
+ * When a DM bot emits [START_ENCOUNTER: Name], find a matching bot in the
+ * group bestiary and insert it into group_chat_bots so it can respond.
+ * No-op if already active or not found in bestiary.
+ */
+async function autoSummonFromBestiary(
+  svc: ReturnType<typeof serviceClient>,
+  groupChatId: string,
+  creatorId: string,
+  encounterName: string
+): Promise<string | null> {
+  const nameLower = encounterName.trim().toLowerCase()
+
+  // Find bestiary bot whose name matches
+  const { data: bestiaryRows } = await svc
+    .from('group_chat_bestiary')
+    .select('bot_id, bots(id, name)')
+    .eq('group_chat_id', groupChatId)
+
+  const match = (bestiaryRows || []).find((row: Record<string, unknown>) => {
+    const bot = row.bots as { id: string; name: string } | null
+    return bot?.name?.trim().toLowerCase() === nameLower
+  })
+
+  if (!match) return null
+  const botId = String(match.bot_id || '')
+
+  // Upsert — idempotent if already active
+  await svc
+    .from('group_chat_bots')
+    .upsert({ group_chat_id: groupChatId, bot_id: botId, added_by: creatorId }, { onConflict: 'group_chat_id,bot_id' })
+
+  return botId
+}
+
+/**
+ * When a bot emits [DEFEATED], remove it from group_chat_bots.
+ * It remains in the bestiary for re-summon.
+ */
+async function autoEjectFromGroup(
+  svc: ReturnType<typeof serviceClient>,
+  groupChatId: string,
+  botId: string
+): Promise<void> {
+  await svc
+    .from('group_chat_bots')
+    .delete()
+    .eq('group_chat_id', groupChatId)
+    .eq('bot_id', botId)
+}
+
 type GroupChatContext = {
   id: string
   name: string
@@ -864,7 +919,8 @@ export async function POST(
       }
 
       if (group) {
-        const bots = groupBots
+        // Use a mutable array so auto-summon/eject can update it mid-loop
+        const bots: GroupBot[] = [...groupBots]
         const botsWarning = bots.length === 0 ? 'No bots are attached to this group chat' : null
         if (botsWarning) {
           console.error('Group chat bots warning:', botsWarning)
@@ -945,10 +1001,45 @@ export async function POST(
           // this turn influence subsequent bot picks within the same request cycle.
           if (encounterCtx !== undefined) {
             const ephemeralMsg = [{ sender_id: `bot_${respondingBot.id}`, content: botReply.content }]
-            encounterCtx = deriveEncounterContext(
+            const updatedCtx = deriveEncounterContext(
               [...generationMessages, ...ephemeralMsg],
               botsByName
             )
+
+            // Auto-summon: if a START_ENCOUNTER signal just appeared, pull the named bot from bestiary.
+            if (
+              updatedCtx.state === 'active' &&
+              updatedCtx.activeEncounterName &&
+              encounterCtx.state !== 'active'
+            ) {
+              const summoned = await autoSummonFromBestiary(
+                svc,
+                groupChatId,
+                group.creator_id,
+                updatedCtx.activeEncounterName
+              )
+              if (summoned) {
+                // Reload bots so the newly summoned bot can respond on the next turn
+                const { bots: refreshedBots } = await getGroupBots(svc, groupChatId)
+                bots.length = 0
+                bots.push(...refreshedBots)
+                for (const b of refreshedBots) {
+                  botsById.set(b.id, b)
+                  botsByName.set(b.name.trim().toLowerCase(), b)
+                }
+              }
+            }
+
+            // Auto-eject: if a DEFEATED signal appeared, remove the encounter bot from the group.
+            if (updatedCtx.state === 'defeated' && encounterCtx.state === 'active') {
+              await autoEjectFromGroup(svc, groupChatId, respondingBot.id)
+              botsById.delete(respondingBot.id)
+              botsByName.delete(respondingBot.name.trim().toLowerCase())
+              const idx = bots.findIndex((b) => b.id === respondingBot.id)
+              if (idx >= 0) bots.splice(idx, 1)
+            }
+
+            encounterCtx = updatedCtx
           }
 
           const persistResult = await persistBotMessage({

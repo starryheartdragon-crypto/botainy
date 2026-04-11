@@ -134,14 +134,14 @@ export function deriveEncounterContext(
  *  3. Exploration mode — DM bot
  *  4. Fallback — deterministic seed pick from non-excluded bots
  */
-export function pickEncounterBot(opts: {
-  bots: Array<{ id: string; name: string; personality: string }>
+export function pickEncounterBot<T extends { id: string; name: string; personality: string }>(opts: {
+  bots: T[]
   dmBotId: string | null
   encounterCtx: EncounterContext
   playerMessage: string
   triggerSeed: string
   excludedBotIds: Set<string>
-}): { id: string; name: string; personality: string } | null {
+}): T | null {
   const { bots, dmBotId, encounterCtx, playerMessage, triggerSeed, excludedBotIds } = opts
 
   if (bots.length === 0) return null
