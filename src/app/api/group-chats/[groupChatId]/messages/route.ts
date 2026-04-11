@@ -97,6 +97,8 @@ type GroupChatContext = {
   api_temperature: number
   response_length: number
   narrative_style: number
+  corebook_name: string | null
+  corebook_url: string | null
 }
 
 type GroupBot = {
@@ -559,7 +561,7 @@ async function generateBotReply({
   // Build role-specific directives for TTRPG bots
   const ttrpgDirectiveBlock = isTtrpg
     ? isDmBot
-      ? buildDmEncounterDirectives(group.dm_bot_id, Array.from(botsById.values()))
+      ? buildDmEncounterDirectives(group.dm_bot_id, Array.from(botsById.values()), group.corebook_name, group.corebook_url)
       : isEncounterBot
         ? buildEncounterBotDirectives()
         : null
@@ -735,6 +737,8 @@ async function getGroupContext(svc: ReturnType<typeof serviceClient>, groupChatI
     api_temperature: typeof row.api_temperature === 'number' ? row.api_temperature : 0.92,
     response_length: typeof row.response_length === 'number' ? row.response_length : 1,
     narrative_style: typeof row.narrative_style === 'number' ? row.narrative_style : 1,
+    corebook_name: typeof row.corebook_name === 'string' ? row.corebook_name : null,
+    corebook_url: typeof row.corebook_url === 'string' ? row.corebook_url : null,
   }
 
   return { group, warning: null }

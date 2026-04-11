@@ -41,6 +41,8 @@ export default function GroupChatsPage() {
 
   const [newGameSystem, setNewGameSystem] = useState("");
   const [newRulebookReferences, setNewRulebookReferences] = useState("");
+  const [newCorebookName, setNewCorebookName] = useState("");
+  const [newCorebookUrl, setNewCorebookUrl] = useState("");
   const [newGmMode, setNewGmMode] = useState<GmMode>("user");
   const [newBotGmId, setNewBotGmId] = useState("");
   const [newGM, setNewGM] = useState("");
@@ -415,6 +417,8 @@ export default function GroupChatsPage() {
         rules: rules || null,
         personaRelationshipContext: newCharacterRelationships.trim() || null,
         bestiaryBotIds: newFocus === "ttrpg" ? newBestiary : [],
+        corebookName: newFocus === "ttrpg" && newCorebookName.trim() ? newCorebookName.trim() : undefined,
+        corebookUrl: newFocus === "ttrpg" && newCorebookUrl.trim() ? newCorebookUrl.trim() : undefined,
       };
 
       const resp = await fetch("/api/group-chats", {
@@ -597,6 +601,25 @@ export default function GroupChatsPage() {
               <div>
                 <label className="mb-1 block text-sm font-medium">Rulebook References / House Rules</label>
                 <textarea value={newRulebookReferences} onChange={(e) => setNewRulebookReferences(e.target.value)} className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2" placeholder="Paste references or homebrew rules" />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">Corebook / SRD Link <span className="text-gray-400 font-normal">(optional)</span></label>
+                <p className="mb-2 text-xs text-gray-400">Link to the official rulebook or SRD (e.g. D&amp;D 5e, Pathfinder, Call of Cthulhu). The DM bot will use this ruleset for encounter stat blocks and rulings.</p>
+                <input
+                  type="text"
+                  value={newCorebookName}
+                  onChange={(e) => setNewCorebookName(e.target.value)}
+                  placeholder="System name, e.g. D&D 5e SRD"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 mb-2 text-sm"
+                />
+                <input
+                  type="url"
+                  value={newCorebookUrl}
+                  onChange={(e) => setNewCorebookUrl(e.target.value)}
+                  placeholder="https://www.5esrd.com or https://2e.aonprd.com"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm"
+                />
               </div>
 
               <div>

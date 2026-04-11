@@ -152,58 +152,80 @@ export function RelationshipContextPanel({
   }
 
   return (
-    <div className="px-4 pb-3">
-      {/* Compact header — click to expand */}
+    <div className="px-4 pb-4 space-y-3">
+      {/* Always-visible: stage label */}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Relationship</span>
+        <span
+          className="text-xs font-bold px-2 py-0.5 rounded-full border"
+          style={{ color: stage.color, borderColor: stage.color + '55', background: stage.color + '18' }}
+        >
+          {stage.label}
+        </span>
+      </div>
+
+      {/* Always-visible: Score Slider */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] text-red-400">Archrivals</span>
+          <span className="text-xs font-bold" style={{ color: stage.color }}>
+            {scoreLabel}
+          </span>
+          <span className="text-[11px] text-pink-400">Lovers</span>
+        </div>
+        <input
+          type="range"
+          min={-100}
+          max={100}
+          step={1}
+          value={data.relationship_score}
+          onChange={(e) => handleScoreChange(Number(e.target.value))}
+          onMouseUp={(e) => handleScoreBlur(Number((e.target as HTMLInputElement).value))}
+          onTouchEnd={(e) => handleScoreBlur(Number((e.target as HTMLInputElement).value))}
+          className="w-full h-2 rounded-full appearance-none cursor-pointer"
+          style={{ background: sliderBackground(data.relationship_score) }}
+        />
+        <div className="flex justify-between text-[10px] text-gray-600 mt-0.5">
+          <span>-100</span>
+          <span>0</span>
+          <span>+100</span>
+        </div>
+      </div>
+
+      {/* Always-visible: Shared history text box */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wide">
+          Shared History <span className="font-normal normal-case text-gray-600">(optional — how {botName} feels about {personaName ?? 'your persona'})</span>
+        </label>
+        <textarea
+          ref={backstoryRef}
+          value={data.relationship_context}
+          onChange={(e) => onChange({ relationship_context: e.target.value })}
+          onBlur={(e) => handleBackstoryBlur(e.target.value)}
+          rows={2}
+          maxLength={600}
+          placeholder={`e.g. "${botName} is deeply protective but won't admit to caring — every interaction is layered with things unsaid."`}
+          className="w-full px-3 py-2 bg-gray-900 text-white text-xs rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition resize-none placeholder-gray-600"
+        />
+        <div className="text-right text-[10px] text-gray-600 mt-0.5">{data.relationship_context.length}/600</div>
+      </div>
+
+      {/* Advanced section (tags, events, AI summary) — collapsible */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between py-1.5 text-left group"
+        className="w-full flex items-center justify-between py-1 text-left group"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Relationship</span>
-          <span
-            className="text-xs font-bold px-2 py-0.5 rounded-full border"
-            style={{ color: stage.color, borderColor: stage.color + '55', background: stage.color + '18' }}
-          >
-            {stage.label}
-          </span>
-          {data.relationship_tags.length > 0 && (
-            <span className="text-xs text-gray-500">{data.relationship_tags.slice(0, 2).join(' · ')}{data.relationship_tags.length > 2 ? ' +more' : ''}</span>
-          )}
-        </div>
-        <span className="text-gray-600 group-hover:text-gray-400 transition text-xs">{open ? '▲' : '▼'}</span>
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide group-hover:text-gray-300 transition">
+          Advanced {open ? '▲' : '▼'}
+        </span>
+        {data.relationship_tags.length > 0 && !open && (
+          <span className="text-[10px] text-gray-600">{data.relationship_tags.slice(0, 2).join(' · ')}{data.relationship_tags.length > 2 ? ' …' : ''}</span>
+        )}
       </button>
 
       {open && (
-        <div className="mt-2 space-y-4 pb-1">
-          {/* Score Slider */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">Archrivals</span>
-              <span className="text-sm font-bold" style={{ color: stage.color }}>
-                {stage.label} ({scoreLabel})
-              </span>
-              <span className="text-xs text-purple-400">Lovers</span>
-            </div>
-            <input
-              type="range"
-              min={-100}
-              max={100}
-              step={1}
-              value={data.relationship_score}
-              onChange={(e) => handleScoreChange(Number(e.target.value))}
-              onMouseUp={(e) => handleScoreBlur(Number((e.target as HTMLInputElement).value))}
-              onTouchEnd={(e) => handleScoreBlur(Number((e.target as HTMLInputElement).value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer"
-              style={{ background: sliderBackground(data.relationship_score) }}
-            />
-            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
-              <span>-100</span>
-              <span>0</span>
-              <span>+100</span>
-            </div>
-          </div>
-
+        <div className="space-y-4 pb-1">
           {/* Dynamic Tags */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Tags</label>
@@ -243,24 +265,6 @@ export function RelationshipContextPanel({
                 + Add
               </button>
             </div>
-          </div>
-
-          {/* Backstory */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-1 uppercase tracking-wide">
-              Backstory / Notes <span className="font-normal normal-case text-gray-600">(how {botName} feels about {personaName ?? 'your persona'})</span>
-            </label>
-            <textarea
-              ref={backstoryRef}
-              value={data.relationship_context}
-              onChange={(e) => onChange({ relationship_context: e.target.value })}
-              onBlur={(e) => handleBackstoryBlur(e.target.value)}
-              rows={2}
-              maxLength={600}
-              placeholder={`e.g. "${botName} is deeply protective but won't admit to caring — every interaction is layered with things unsaid."`}
-              className="w-full px-3 py-2 bg-gray-900 text-white text-xs rounded-lg border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition resize-none placeholder-gray-600"
-            />
-            <div className="text-right text-[10px] text-gray-600 mt-0.5">{data.relationship_context.length}/600</div>
           </div>
 
           {/* Event Log */}

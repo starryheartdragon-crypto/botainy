@@ -267,13 +267,34 @@ export function buildEncounterFullSheet(encounterBot: { name: string; personalit
  * Returns instructions added to a DM bot's system prompt so it knows how to
  * emit encounter signals and manage the initiative queue.
  */
-export function buildDmEncounterDirectives(dmBotId: string | null, bots: Array<{ id: string; name: string; personality: string }>): string {
+export function buildDmEncounterDirectives(
+  dmBotId: string | null,
+  bots: Array<{ id: string; name: string; personality: string }>,
+  corebookName?: string | null,
+  corebookUrl?: string | null,
+): string {
   const encounterBots = bots.filter((b) => b.personality?.includes('TTRPG Role: Encounter'))
   const encounterBotNames = encounterBots.map((b) => b.name).join(', ')
 
   const lines = [
     '### **ENCOUNTER MANAGEMENT DIRECTIVES (CRITICAL — DM ONLY)**',
     'You are the Dispatcher. You control when combat starts and ends.',
+  ]
+
+  if (corebookName || corebookUrl) {
+    lines.push('')
+    lines.push('**Ruleset Reference:**')
+    if (corebookName && corebookUrl) {
+      lines.push(`Use the rules and monster stat blocks from **${corebookName}**: ${corebookUrl}`)
+    } else if (corebookName) {
+      lines.push(`Use the rules and monster stat blocks from **${corebookName}**.`)
+    } else {
+      lines.push(`Reference ruleset: ${corebookUrl}`)
+    }
+    lines.push('Apply that system\'s encounter mechanics, stat blocks, and rulings unless the group\'s house rules override them.')
+  }
+
+  lines.push(
     '',
     '**To start an encounter:**',
     'Narrate the scene, then on its own line emit: [START_ENCOUNTER: CreatureName]',
@@ -288,7 +309,7 @@ export function buildDmEncounterDirectives(dmBotId: string | null, bots: Array<{
     'When the Encounter bot emits [DEFEATED] or the situation resolves narratively, narrate the aftermath on its own line and emit: [END_ENCOUNTER]',
     '',
     'IMPORTANT: These signal tags are hidden from players. Only emit them when the narrative calls for it.',
-  ]
+  )
 
   return lines.join('\n')
 }

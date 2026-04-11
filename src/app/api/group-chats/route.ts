@@ -159,6 +159,8 @@ export async function POST(req: NextRequest) {
       dmBotId: rawDmBotId,
       selectedPersonaId: rawSelectedPersonaId,
       personaRelationshipContext: rawPersonaRelationshipContext,
+      corebookName: rawCorebookName,
+      corebookUrl: rawCorebookUrl,
     } = body
 
     const additionalUserIdsRaw = Array.isArray(body?.invitedUserIds)
@@ -281,6 +283,18 @@ export async function POST(req: NextRequest) {
     let dmBotId: string | null = null
     let selectedPersonaId: string | null = null
     let personaRelationshipContext: string | null = null
+    let corebookName: string | null =
+      typeof rawCorebookName === 'string' && rawCorebookName.trim() ? rawCorebookName.trim() : null
+    let corebookUrl: string | null = null
+    if (typeof rawCorebookUrl === 'string' && rawCorebookUrl.trim()) {
+      try {
+        const parsed = new URL(rawCorebookUrl.trim())
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('invalid protocol')
+        corebookUrl = parsed.toString()
+      } catch {
+        return NextResponse.json({ error: 'Corebook URL must be a valid http/https URL' }, { status: 400 })
+      }
+    }
 
     const parsedSelectedPersonaId = String(rawSelectedPersonaId || '').trim()
     if (parsedSelectedPersonaId) {
@@ -376,6 +390,8 @@ export async function POST(req: NextRequest) {
         dm_user_id: dmUserId,
         dm_bot_id: dmBotId,
         persona_relationship_context: personaRelationshipContext,
+        corebook_name: corebookName,
+        corebook_url: corebookUrl,
       })
       .select()
       .single()
