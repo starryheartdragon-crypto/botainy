@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
 import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import {
+  deriveEncounterContext,
+  buildDmEncounterDirectives,
+  buildEncounterBotDirectives,
+  stripEncounterSignals,
+} from '@/lib/encounterEngine'
 
 type PersonaContext = { name: string; description: string | null }
 type BotInfo = { name: string; personality: string; source_excerpts: string | null; example_dialogues: Array<{ user: string; bot: string }> | null; character_quotes: string[] | null }
@@ -336,6 +342,27 @@ export async function POST(
 
     const hardBoundariesGuardrail = buildHardBoundariesGuardrail(hardBoundaries)
 
+    // --- 1-on-1 TTRPG encounter directives ---
+    const isTtrpgDmBot = botInfo.personality?.includes('TTRPG Role: DM')
+    const isTtrpgEncounterBot = botInfo.personality?.includes('TTRPG Role: Encounter')
+    const isTtrpgBot = isTtrpgDmBot || isTtrpgEncounterBot
+
+    // Derive encounter state from message history so DM/Encounter bots know the current phase.
+    let encounterDirective: string | null = null
+    if (isTtrpgBot) {
+      const historyMessages = (recentMessages || []).map((m) => ({
+        sender_id: String(m.sender_id || ''),
+        content: String(m.content || ''),
+      }))
+      const encounterCtx = deriveEncounterContext(historyMessages, new Map())
+      if (isTtrpgDmBot) {
+        encounterDirective = buildDmEncounterDirectives(chat.bot_id, [])
+      } else if (isTtrpgEncounterBot) {
+        encounterDirective = buildEncounterBotDirectives()
+      }
+      void encounterCtx // context available for future extension (e.g. lite sheet injection)
+    }
+
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
       personaPrompt,
@@ -352,6 +379,7 @@ export async function POST(
       ...(buildResponseLengthInstruction(typedChat.response_length) ? [buildResponseLengthInstruction(typedChat.response_length)!] : []),
       ...(buildNarrativeStyleInstruction(typedChat.narrative_style) ? [buildNarrativeStyleInstruction(typedChat.narrative_style)!] : []),
       ...buildSourceMaterialBlock(botInfo),
+      ...(encounterDirective ? [encounterDirective] : []),
     ].join('\n\n')
     const openrouterApiKey = resolveOpenRouterApiKey()
     const openrouterModel = resolveOpenRouterModel('openrouter/auto')
@@ -467,6 +495,9 @@ export async function POST(
       })
     }
 
+    // Strip hidden encounter signals before persisting so players only see narrative text.
+    const cleanedBotResponse = stripEncounterSignals(botResponseContent)
+
     // Save bot response
     const candidateSenderIds = [`bot_${chat.bot_id}`, chat.bot_id]
     let botMessage: Record<string, unknown> | null = null
@@ -478,7 +509,7 @@ export async function POST(
         .insert({
           chat_id: chatId,
           sender_id: senderId,
-          content: botResponseContent,
+          content: cleanedBotResponse,
         })
         .select()
         .single()

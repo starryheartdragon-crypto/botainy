@@ -7,6 +7,16 @@ import {
   resolveOpenRouterReferer,
 } from '@/lib/openrouterServer'
 import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import {
+  deriveEncounterContext,
+  pickEncounterBot,
+  buildEncounterLiteSheet,
+  buildEncounterFullSheet,
+  buildDmEncounterDirectives,
+  buildEncounterBotDirectives,
+  stripEncounterSignals,
+  type EncounterContext,
+} from '@/lib/encounterEngine'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!
@@ -145,24 +155,40 @@ function pickRespondingBot(
   group: GroupChatContext,
   bots: GroupBot[],
   triggerMessageId: string,
-  excludedBotIds: Set<string> = new Set()
+  excludedBotIds: Set<string> = new Set(),
+  encounterCtx?: EncounterContext,
+  playerMessage?: string
 ) {
   if (bots.length === 0) return null
 
-  const availableBots = bots.filter((bot) => !excludedBotIds.has(bot.id))
-  const candidates = availableBots.length > 0 ? availableBots : bots
+  // For TTRPG groups use the encounter-aware dispatcher
+  if (group.group_type === 'ttrpg' && encounterCtx) {
+    return pickEncounterBot({
+      bots,
+      dmBotId: group.dm_bot_id,
+      encounterCtx,
+      playerMessage: playerMessage ?? '',
+      triggerSeed: triggerMessageId,
+      excludedBotIds,
+    })
+  }
 
-  if (group.group_type === 'ttrpg' && group.dm_mode === 'bot' && group.dm_bot_id) {
-    const dmBot = candidates.find((bot) => bot.id === group.dm_bot_id)
+  // Non-TTRPG groups: original logic
+  if (group.dm_mode === 'bot' && group.dm_bot_id) {
+    const availableForDm = bots.filter((bot) => !excludedBotIds.has(bot.id))
+    const dmBot = availableForDm.find((bot) => bot.id === group.dm_bot_id)
     if (dmBot) return dmBot
   }
+
+  const available = bots.filter((bot) => !excludedBotIds.has(bot.id))
+  const candidates = available.length > 0 ? available : bots
 
   const numericSeed = triggerMessageId
     .replace(/-/g, '')
     .split('')
     .reduce((acc, char) => acc + char.charCodeAt(0), 0)
 
-  return candidates[numericSeed % candidates.length]
+  return candidates[numericSeed % candidates.length] ?? null
 }
 
 function buildGroupModePrompt(group: GroupChatContext) {
@@ -415,6 +441,7 @@ async function generateBotReply({
   botsById,
   userPersona,
   userHardBoundaries,
+  encounterCtx,
 }: {
   group: GroupChatContext
   bot: GroupBot
@@ -423,6 +450,7 @@ async function generateBotReply({
   botsById: Map<string, GroupBot>
   userPersona: UserPersona | null
   userHardBoundaries: string[]
+  encounterCtx?: EncounterContext
   // is_nsfw is read from group.is_nsfw
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
@@ -453,6 +481,35 @@ async function generateBotReply({
 
   const hardBoundariesGuardrail = buildHardBoundariesGuardrail(userHardBoundaries)
 
+  // --- Encounter context injection (Shared Blackboard) ---
+  const isTtrpg = group.group_type === 'ttrpg'
+  const isDmBot = isTtrpg && group.dm_bot_id === bot.id
+  const isEncounterBot = bot.personality?.includes('TTRPG Role: Encounter')
+  const encounterActive = encounterCtx && encounterCtx.state === 'active'
+
+  // Find the active encounter bot to build the shared blackboard
+  let encounterSheetBlock: string | null = null
+  if (isTtrpg && encounterCtx && encounterCtx.state !== 'idle' && encounterCtx.activeEncounterName) {
+    const nameLower = encounterCtx.activeEncounterName.toLowerCase()
+    const activeEncounterBot = Array.from(botsById.values()).find(
+      (b) => b.name.trim().toLowerCase() === nameLower || b.personality?.includes('TTRPG Role: Encounter')
+    )
+    if (activeEncounterBot) {
+      encounterSheetBlock = isDmBot
+        ? buildEncounterFullSheet(activeEncounterBot)   // Full sheet when DM is primary responder
+        : buildEncounterLiteSheet(activeEncounterBot)   // Lite sheet always injected
+    }
+  }
+
+  // Build role-specific directives for TTRPG bots
+  const ttrpgDirectiveBlock = isTtrpg
+    ? isDmBot
+      ? buildDmEncounterDirectives(group.dm_bot_id, Array.from(botsById.values()))
+      : isEncounterBot
+        ? buildEncounterBotDirectives()
+        : null
+    : null
+
   const systemPrompt = [
     `You are ${bot.name}. ${bot.personality}`,
     personaLine,
@@ -467,6 +524,11 @@ async function generateBotReply({
     buildResponseLengthInstruction(group.response_length),
     buildNarrativeStyleInstruction(group.narrative_style),
     ...buildGroupSourceMaterialBlock(bot),
+    ttrpgDirectiveBlock,
+    encounterSheetBlock,
+    encounterActive && !isDmBot && !isEncounterBot
+      ? `### **ENCOUNTER IN PROGRESS**\nAn encounter is active (${encounterCtx!.activeEncounterName}). React to events but defer combat resolution to the encounter creature and the DM.`
+      : null,
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -817,6 +879,13 @@ export async function POST(
         // Track all bots that have already responded this cycle so they are not picked again.
         const respondedBotIds = new Set<string>()
 
+        // Derive encounter state from message history (in-memory, no DB write).
+        // We load recent messages once before the loop so all turns share the same snapshot.
+        const { messages: historyForEncounter } = await getRecentMessagesForGeneration(svc, groupChatId)
+        let encounterCtx = group.group_type === 'ttrpg'
+          ? deriveEncounterContext(historyForEncounter, botsByName)
+          : undefined
+
         for (let turn = 0; turn < maxBotTurns; turn += 1) {
           const triggerBot = resolveBotFromMessage(triggerMessage, botsById, botsByName)
 
@@ -831,7 +900,9 @@ export async function POST(
             group,
             bots,
             `${triggerMessage.id}:${turn}`,
-            excludedBotIds
+            excludedBotIds,
+            encounterCtx,
+            content
           )
           if (!respondingBot) break
 
@@ -855,6 +926,7 @@ export async function POST(
             botsById,
             userPersona,
             userHardBoundaries,
+            encounterCtx,
           })
 
           if (botReply.warning) {
@@ -866,10 +938,23 @@ export async function POST(
             break
           }
 
+          // Strip hidden encounter signals before persisting so players only see narrative text.
+          const cleanedContent = stripEncounterSignals(botReply.content)
+
+          // Re-derive encounter context from the raw (un-stripped) reply so signals emitted
+          // this turn influence subsequent bot picks within the same request cycle.
+          if (encounterCtx !== undefined) {
+            const ephemeralMsg = [{ sender_id: `bot_${respondingBot.id}`, content: botReply.content }]
+            encounterCtx = deriveEncounterContext(
+              [...generationMessages, ...ephemeralMsg],
+              botsByName
+            )
+          }
+
           const persistResult = await persistBotMessage({
             groupChatId,
             bot: respondingBot,
-            content: botReply.content,
+            content: cleanedContent,
             fallbackHumanSenderId: group.creator_id,
           })
 
