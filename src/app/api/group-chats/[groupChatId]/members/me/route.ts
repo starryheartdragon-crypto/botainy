@@ -38,7 +38,7 @@ export async function GET(
 
     const { data, error } = await svc
       .from('group_chat_members')
-      .select('id, group_chat_id, user_id, joined_at, is_moderator, persona_id')
+      .select('id, group_chat_id, user_id, joined_at, is_moderator, persona_id, relationship_score, relationship_context')
       .eq('group_chat_id', groupChatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -70,7 +70,11 @@ export async function PATCH(
 
     const rawPersonaId = String(body?.personaId || '').trim()
     const rawRelationshipContext = String(body?.relationshipContext || '').trim()
-    const appendRelationshipContext = body?.appendRelationshipContext !== false
+    const rawRelationshipScore = typeof body?.relationshipScore === 'number'
+      ? Math.max(-100, Math.min(100, Math.round(body.relationshipScore)))
+      : null
+    // Legacy flag — kept for backward compat but no longer used for group-level append
+    const _appendRelationshipContext = body?.appendRelationshipContext !== false
 
     const svc = serviceClient()
 
@@ -100,45 +104,18 @@ export async function PATCH(
       personaIdToSave = personaRow.id
     }
 
+    const memberUpdate: Record<string, unknown> = { persona_id: personaIdToSave }
+    if (rawRelationshipContext) memberUpdate.relationship_context = rawRelationshipContext
+    if (rawRelationshipScore !== null) memberUpdate.relationship_score = rawRelationshipScore
+
     const { error: updateMembershipError } = await svc
       .from('group_chat_members')
-      .update({ persona_id: personaIdToSave })
+      .update(memberUpdate)
       .eq('group_chat_id', groupChatId)
       .eq('user_id', user.id)
 
     if (updateMembershipError) {
       return NextResponse.json({ error: updateMembershipError.message }, { status: 500 })
-    }
-
-    if (rawRelationshipContext) {
-      const { data: groupRow, error: groupError } = await svc
-      .from('group_chats')
-        .select('persona_relationship_context')
-        .eq('id', groupChatId)
-        .maybeSingle()
-
-      if (groupError) return NextResponse.json({ error: groupError.message }, { status: 500 })
-
-      const existing = String(groupRow?.persona_relationship_context || '').trim()
-      const entry = `User ${user.id}: ${rawRelationshipContext}`
-      const next = appendRelationshipContext && existing ? `${existing}\n\n${entry}` : entry
-
-      if (next.length > MAX_PERSONA_RELATIONSHIP_CONTEXT) {
-        return NextResponse.json(
-          { error: `Relationship context must be ${MAX_PERSONA_RELATIONSHIP_CONTEXT} characters or less` },
-          { status: 400 }
-        )
-      }
-
-      const { error: updateGroupError } = await svc
-        .from('group_chats')
-        .update({
-          persona_relationship_context: next,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', groupChatId)
-
-      if (updateGroupError) return NextResponse.json({ error: updateGroupError.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, persona_id: personaIdToSave })

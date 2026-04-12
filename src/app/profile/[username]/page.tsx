@@ -6,6 +6,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { useMusicStore, extractYouTubeId } from '@/store/musicStore'
 
 type Bot = {
   id: string
@@ -336,35 +337,11 @@ export default function PublicProfilePage() {
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-10">
         {/* Music Player */}
         {profile.music && (
-          <section>
-            <h2 className="text-lg font-bold mb-3 text-gray-100">🎵 Soundtrack</h2>
-            {playlistId ? (
-              <div className="rounded-xl overflow-hidden border border-gray-700 shadow-lg">
-                <iframe
-                  src={`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=0`}
-                  className="w-full h-48"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Profile Playlist"
-                />
-              </div>
-            ) : profile.music.tracks.length > 0 ? (
-              <div className="space-y-2">
-                {profile.music.tracks.map((track) => (
-                  <a
-                    key={track.id}
-                    href={track.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition"
-                  >
-                    <span className="text-purple-400">♪</span>
-                    <span className="text-gray-200 text-sm">{track.title}</span>
-                  </a>
-                ))}
-              </div>
-            ) : null}
-          </section>
+          <ProfileMusicSection
+            music={profile.music}
+            playlistId={playlistId}
+            profileUsername={profile.username}
+          />
         )}
 
         {/* Bots */}
@@ -464,3 +441,92 @@ export default function PublicProfilePage() {
 
 // Expose scoreToStage so RelationshipContextPanel can import it too
 export { scoreToStage }
+
+// ── Profile Music Section ──────────────────────────────────────────────────
+function ProfileMusicSection({
+  music,
+  playlistId,
+  profileUsername,
+}: {
+  music: { playlistUrl: string | null; tracks: Array<{ id: string; title: string; url: string; order: number }> }
+  playlistId: string | null
+  profileUsername: string
+}) {
+  const setPlaylist = useMusicStore((s) => s.setPlaylist)
+  const currentTracks = useMusicStore((s) => s.tracks)
+  const sourceLabel = useMusicStore((s) => s.sourceLabel)
+  const isActive = sourceLabel === profileUsername && currentTracks.length > 0
+
+  const playAll = (startIndex = 0) => {
+    const ytTracks = music.tracks
+      .map((t) => ({ title: t.title, youtubeId: extractYouTubeId(t.url) }))
+      .filter((t) => t.youtubeId)
+    if (!ytTracks.length) return
+    const store = useMusicStore.getState()
+    store.setPlaylist(ytTracks, profileUsername)
+    if (startIndex > 0) store.setTrack(startIndex)
+  }
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-gray-100">🎵 Soundtrack</h2>
+        {!playlistId && music.tracks.length > 0 && (
+          <button
+            onClick={() => playAll()}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              isActive
+                ? 'bg-purple-700 text-white'
+                : 'bg-gray-800 hover:bg-purple-700 text-gray-300 hover:text-white'
+            }`}
+          >
+            {isActive ? '▶ Playing' : '▶ Play All'}
+          </button>
+        )}
+      </div>
+
+      {playlistId ? (
+        <div className="rounded-xl overflow-hidden border border-gray-700 shadow-lg">
+          <iframe
+            src={`https://www.youtube.com/embed/videoseries?list=${playlistId}&autoplay=0`}
+            className="w-full h-48"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Profile Playlist"
+          />
+        </div>
+      ) : music.tracks.length > 0 ? (
+        <div className="space-y-2">
+          {music.tracks.map((track, idx) => {
+            const ytId = extractYouTubeId(track.url)
+            return (
+              <div
+                key={track.id}
+                className="flex items-center gap-3 px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-750 transition group"
+              >
+                <button
+                  onClick={() => ytId && playAll(idx)}
+                  disabled={!ytId}
+                  className="text-purple-400 hover:text-purple-300 disabled:opacity-30 transition text-lg leading-none flex-shrink-0"
+                  title={ytId ? 'Play from here' : 'Cannot play — no YouTube ID found'}
+                >
+                  ▶
+                </button>
+                <span className="text-gray-200 text-sm flex-1 truncate">{track.title}</span>
+                <a
+                  href={track.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-500 hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition"
+                  title="Open on YouTube"
+                >
+                  ↗
+                </a>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+    </section>
+  )
+}

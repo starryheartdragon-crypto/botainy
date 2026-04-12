@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { PersonaSelector } from '@/components/PersonaSelector'
 import { FormattedText } from '@/components/MessageList'
 import { SoundtrackDrawer } from '@/components/SoundtrackDrawer'
+import { useMusicStore } from '@/store/musicStore'
 
 interface GroupMessage {
   id: string
@@ -49,10 +50,19 @@ export default function GroupChatDetailPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
   const [relationshipContextInput, setRelationshipContextInput] = useState('')
+  const [relationshipScore, setRelationshipScore] = useState(0)
+  const [savedRelationshipContext, setSavedRelationshipContext] = useState<string | null>(null)
+  const [savedRelationshipScore, setSavedRelationshipScore] = useState(0)
   const [savingJoinProfile, setSavingJoinProfile] = useState(false)
   const [joinProfileMessage, setJoinProfileMessage] = useState<string | null>(null)
   const [membershipLoaded, setMembershipLoaded] = useState(false)
   const [membershipHasProfile, setMembershipHasProfile] = useState(false)
+  // My Profile modal (re-accessible relationship settings)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+
+  // Pause profile music while in chat
+  const pauseMusic = useMusicStore((s) => s.pause)
+  useEffect(() => { pauseMusic() }, [pauseMusic])
 
   // Settings modal state
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -368,10 +378,20 @@ export default function GroupChatDetailPage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       if (memberResp.ok) {
-        const memberData = await memberResp.json() as { persona_id?: string | null, relationship_context?: string | null }
+        const memberData = await memberResp.json() as {
+          persona_id?: string | null
+          relationship_context?: string | null
+          relationship_score?: number | null
+        }
         setSelectedPersonaId(memberData.persona_id ?? null)
+        const score = typeof memberData.relationship_score === 'number' ? memberData.relationship_score : 0
+        const ctx = memberData.relationship_context ?? null
+        setSavedRelationshipScore(score)
+        setSavedRelationshipContext(ctx)
+        setRelationshipScore(score)
+        setRelationshipContextInput(ctx ?? '')
         setMembershipLoaded(true)
-        setMembershipHasProfile(Boolean(memberData.persona_id) || Boolean(memberData.relationship_context))
+        setMembershipHasProfile(Boolean(memberData.persona_id) || Boolean(ctx))
       }
 
       const groupResp = await fetch('/api/group-chats', {
@@ -525,7 +545,7 @@ export default function GroupChatDetailPage() {
         body: JSON.stringify({
           personaId: selectedPersonaId,
           relationshipContext: relationshipContextInput.trim(),
-          appendRelationshipContext: true,
+          relationshipScore,
         }),
       })
 
@@ -538,7 +558,10 @@ export default function GroupChatDetailPage() {
         throw new Error(message)
       }
 
-      setRelationshipContextInput('')
+      setSavedRelationshipContext(relationshipContextInput.trim() || null)
+      setSavedRelationshipScore(relationshipScore)
+      setMembershipHasProfile(true)
+      setProfileModalOpen(false)
       setJoinProfileMessage('Saved. Your persona and relationship context were updated.')
     } catch (err) {
       setJoinProfileMessage(err instanceof Error ? err.message : 'Failed to save join profile')
@@ -592,36 +615,60 @@ export default function GroupChatDetailPage() {
 
       {/* Show join profile UI only for non-creators and only if membership profile not set */}
       {membershipLoaded && group && userId && group.creator_id !== userId && !membershipHasProfile && (
-        <>
-          <PersonaSelector
-            selectedPersonaId={selectedPersonaId}
-            onSelectPersona={setSelectedPersonaId}
-          />
-          <div className="mx-4 sm:mx-6 mt-3 rounded-xl border border-gray-800 bg-gray-900/70 p-3 sm:p-4">
-            <h2 className="text-sm font-semibold text-gray-100">Join Profile</h2>
-            <p className="mt-1 text-xs text-gray-400">
-              Set your persona for this group and add relationship/context notes so the group narrative includes you correctly.
-            </p>
-            <textarea
-              value={relationshipContextInput}
-              onChange={(e) => setRelationshipContextInput(e.target.value)}
-              placeholder="Example: My persona is allied with Bot A, distrusts Bot B, and is secretly seeking a truce."
-              className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white"
-              rows={3}
-            />
-            <div className="mt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={saveJoinProfile}
-                disabled={savingJoinProfile}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {savingJoinProfile ? 'Saving...' : 'Save Join Profile'}
-              </button>
-              {joinProfileMessage ? <span className="text-xs text-gray-300">{joinProfileMessage}</span> : null}
+        <JoinProfilePanel
+          selectedPersonaId={selectedPersonaId}
+          onSelectPersona={setSelectedPersonaId}
+          relationshipScore={relationshipScore}
+          onScoreChange={setRelationshipScore}
+          relationshipContextInput={relationshipContextInput}
+          onContextChange={setRelationshipContextInput}
+          onSave={saveJoinProfile}
+          saving={savingJoinProfile}
+          message={joinProfileMessage}
+        />
+      )}
+
+      {/* Re-open profile modal button for existing members (non-creator) */}
+      {membershipLoaded && group && userId && group.creator_id !== userId && membershipHasProfile && (
+        <button
+          onClick={() => setProfileModalOpen(true)}
+          className="mx-4 sm:mx-6 mt-3 mb-1 self-start text-xs text-gray-500 hover:text-gray-300 transition flex items-center gap-1"
+        >
+          👤 Edit My Group Profile
+        </button>
+      )}
+
+      {/* Profile Edit Modal */}
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-[94vw] max-w-md flex flex-col max-h-[88vh]">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-gray-800">
+              <h2 className="text-base font-bold text-white">My Group Profile</h2>
+              <button className="text-gray-400 hover:text-white" onClick={() => setProfileModalOpen(false)}>✖</button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-4 py-3">
+              <JoinProfilePanel
+                selectedPersonaId={selectedPersonaId}
+                onSelectPersona={setSelectedPersonaId}
+                relationshipScore={relationshipScore}
+                onScoreChange={setRelationshipScore}
+                relationshipContextInput={relationshipContextInput}
+                onContextChange={setRelationshipContextInput}
+                onSave={saveJoinProfile}
+                saving={savingJoinProfile}
+                message={joinProfileMessage}
+                compact
+              />
+              {savedRelationshipContext && (
+                <div className="mt-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Saved context</p>
+                  <p className="text-xs text-gray-300">{savedRelationshipContext}</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Score: {savedRelationshipScore}</p>
+                </div>
+              )}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
@@ -886,6 +933,128 @@ export default function GroupChatDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Join Profile Panel ─────────────────────────────────────────────────────
+function JoinProfilePanel({
+  selectedPersonaId,
+  onSelectPersona,
+  relationshipScore,
+  onScoreChange,
+  relationshipContextInput,
+  onContextChange,
+  onSave,
+  saving,
+  message,
+  compact = false,
+}: {
+  selectedPersonaId: string | null
+  onSelectPersona: (id: string | null) => void
+  relationshipScore: number
+  onScoreChange: (v: number) => void
+  relationshipContextInput: string
+  onContextChange: (v: string) => void
+  onSave: () => void
+  saving: boolean
+  message: string | null
+  compact?: boolean
+}) {
+  const scoreLabel = (score: number) => {
+    if (score <= -76) return 'Archrivals'
+    if (score <= -51) return 'Bitter Enemies'
+    if (score <= -26) return 'Rivals'
+    if (score <= -11) return 'Cold Strangers'
+    if (score <= 10) return 'Neutral'
+    if (score <= 25) return 'Acquaintances'
+    if (score <= 50) return 'Friends'
+    if (score <= 75) return 'Close Friends'
+    if (score <= 90) return 'Deeply Bonded'
+    if (score <= 99) return 'Devoted'
+    return 'Lovers'
+  }
+
+  const scoreColor = (score: number) => {
+    if (score < -50) return 'text-red-500'
+    if (score < -10) return 'text-orange-400'
+    if (score < 11) return 'text-gray-300'
+    if (score < 51) return 'text-blue-400'
+    if (score < 76) return 'text-purple-400'
+    return 'text-pink-400'
+  }
+
+  return (
+    <div className={compact ? '' : 'mx-4 sm:mx-6 mt-3 rounded-xl border border-gray-800 bg-gray-900/70 p-3 sm:p-4'}>
+      {!compact && (
+        <>
+          <h2 className="text-sm font-semibold text-gray-100">Join Profile</h2>
+          <p className="mt-1 text-xs text-gray-400">
+            Set your persona and relationship with the group so the narrative includes you correctly.
+          </p>
+        </>
+      )}
+
+      <div className={compact ? '' : 'mt-3'}>
+        <PersonaSelector
+          selectedPersonaId={selectedPersonaId}
+          onSelectPersona={onSelectPersona}
+        />
+      </div>
+
+      {/* Relationship Score */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+            Relationship with the group
+          </label>
+          <span className={`text-sm font-bold ${scoreColor(relationshipScore)}`}>
+            {scoreLabel(relationshipScore)} ({relationshipScore > 0 ? '+' : ''}{relationshipScore})
+          </span>
+        </div>
+        <input
+          type="range"
+          min="-100"
+          max="100"
+          step="1"
+          value={relationshipScore}
+          onChange={(e) => onScoreChange(Number(e.target.value))}
+          className="w-full accent-purple-500"
+        />
+        <div className="flex justify-between text-[10px] text-gray-600 mt-0.5">
+          <span>Archrivals</span>
+          <span>Neutral</span>
+          <span>Lovers</span>
+        </div>
+      </div>
+
+      {/* Context */}
+      <div className="mt-3">
+        <label className="text-xs font-semibold text-gray-300 uppercase tracking-wide mb-1 block">
+          Shared history / context
+        </label>
+        <textarea
+          value={relationshipContextInput}
+          onChange={(e) => onContextChange(e.target.value)}
+          placeholder="e.g. My persona is allied with Bot A, distrusts Bot B, and is secretly seeking a truce."
+          className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white resize-none"
+          rows={3}
+          maxLength={600}
+        />
+        <p className="text-[10px] text-gray-600 text-right mt-0.5">{relationshipContextInput.length} / 600</p>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        >
+          {saving ? 'Saving…' : 'Save Profile'}
+        </button>
+        {message && <span className="text-xs text-gray-300">{message}</span>}
+      </div>
     </div>
   )
 }

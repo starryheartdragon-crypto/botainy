@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { ChatMessage, Bot } from '@/types'
 import { useAuthStore } from '@/store/authStore'
+import { useMusicStore } from '@/store/musicStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
@@ -47,6 +48,10 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [narrativeStyle, setNarrativeStyle] = useState(1)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<'general' | 'persona'>('general')
+  // Pause profile music when in a chat
+  const pauseMusic = useMusicStore((s) => s.pause)
+  useEffect(() => { pauseMusic() }, [pauseMusic])
   // NSFW toggle state
   const { user } = useAuthStore()
   const [isNsfw, setIsNsfw] = useState(false)
@@ -576,19 +581,6 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         </div>
       </div>
 
-      {/* Persona Selector */}
-      <PersonaSelector
-        selectedPersonaId={selectedPersonaId}
-        onSelectPersona={setSelectedPersonaId}
-        botName={bot.name}
-        personaName={personaName}
-        chatId={chatId}
-        relationshipData={relationshipData}
-        onRelationshipChange={(partial) => setRelationshipData((prev) => ({ ...prev, ...partial }))}
-        onRelationshipSave={handleRelationshipSave}
-        token={authToken}
-      />
-
       {/* Messages */}
       <MessageList 
         messages={messages} 
@@ -655,80 +647,116 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       {/* Settings Modal */}
       {settingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-gray-900 rounded-lg shadow-xl p-6 w-96 relative border border-gray-700">
-            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-200" onClick={handleCloseSettings}>✖</button>
-            <h2 className="text-xl font-bold mb-4 text-white">Chat Settings</h2>
-            <div className="space-y-4">
-              {/* New Chat */}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
-              {/* Get Summary */}
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
-              {/* NSFW Toggle & Warning Tooltip */}
-              <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
-                <span className="text-xs font-bold text-gray-300">{isNsfw ? 'NSFW' : 'SFW'}</span>
-                <button 
-                  onClick={handleToggleNsfw}
-                  disabled={savingNsfw}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-700'}`}
-                  aria-pressed={isNsfw}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-gray-200 absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-                {/* The Hoverbox (Hidden by default, shown on group-hover) */}
-                <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
-                  <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
-                  <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
-                    ⚠️ Unfiltered Content
-                  </h4>
-                  <p className="text-xs text-gray-300 leading-relaxed">
-                    Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
-                  </p>
-                  <div className="mt-2 pt-2 border-t border-gray-800">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                      Use at your own risk. We are not liable for generated content.
-                    </p>
+          <div className="bg-gray-900 rounded-lg shadow-xl w-[96vw] max-w-lg relative border border-gray-700 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-5 pt-4 pb-0">
+              <h2 className="text-xl font-bold text-white">Chat Settings</h2>
+              <button className="text-gray-400 hover:text-gray-200" onClick={handleCloseSettings}>✖</button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-700 mt-3 px-5">
+              <button
+                onClick={() => setSettingsTab('general')}
+                className={`pb-2 mr-6 text-sm font-medium border-b-2 transition ${settingsTab === 'general' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
+              >
+                General
+              </button>
+              <button
+                onClick={() => setSettingsTab('persona')}
+                className={`pb-2 text-sm font-medium border-b-2 transition ${settingsTab === 'persona' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'}`}
+              >
+                Persona &amp; Relationship
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5">
+              {settingsTab === 'general' && (
+                <div className="space-y-4">
+                  {/* New Chat */}
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onClick={handleNewChat}>New Chat</button>
+                  {/* Get Summary */}
+                  <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded" disabled={messages.length < 15 || loading} onClick={handleGetSummary}>Get Summary (Story)</button>
+                  {/* NSFW Toggle & Warning Tooltip */}
+                  <div className="relative group flex items-center gap-2 ml-auto cursor-help mb-4">
+                    <span className="text-xs font-bold text-gray-300">{isNsfw ? 'NSFW' : 'SFW'}</span>
+                    <button 
+                      onClick={handleToggleNsfw}
+                      disabled={savingNsfw}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${isNsfw ? 'bg-red-600' : 'bg-gray-700'}`}
+                      aria-pressed={isNsfw}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-gray-200 absolute top-1 transition-transform ${isNsfw ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                    <div className="absolute right-0 top-full mt-3 hidden group-hover:block w-64 p-3.5 bg-gray-950 border border-red-900/50 rounded-xl shadow-2xl z-50 pointer-events-none">
+                      <div className="absolute -top-2 right-4 w-4 h-4 bg-gray-950 border-t border-l border-red-900/50 transform rotate-45" />
+                      <h4 className="text-red-400 font-bold text-sm mb-1.5 flex items-center gap-1.5">
+                        ⚠️ Unfiltered Content
+                      </h4>
+                      <p className="text-xs text-gray-300 leading-relaxed">
+                        Enabling NSFW removes AI safety filters. This allows explicit romance and &quot;spicy&quot; content, but also permits graphic blood, gore, and dark themes.
+                      </p>
+                      <div className="mt-2 pt-2 border-t border-gray-800">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                          Use at your own risk. We are not liable for generated content.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-2 text-gray-200">Temperature</label>
+                    <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
+                    <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
+                  </div>
+                  {/* Response Length */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-2 text-gray-200">Response Length</label>
+                    <input
+                      type="range" min="0" max="4" step="1"
+                      value={responseLength}
+                      onChange={e => setResponseLength(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>Very Short</span>
+                      <span className="font-medium text-gray-300">{['Very Short', 'Short', 'Default', 'Long', 'Very Long'][responseLength]}</span>
+                      <span>Very Long</span>
+                    </div>
+                  </div>
+                  {/* Narrative Style */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-2 text-gray-200">Writing Style</label>
+                    <input
+                      type="range" min="0" max="4" step="1"
+                      value={narrativeStyle}
+                      onChange={e => setNarrativeStyle(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>Dialogue</span>
+                      <span className="font-medium text-gray-300">{['Dialogue-only', 'Dialogue-heavy', 'Balanced', 'Narrative-heavy', 'Narrative-only'][narrativeStyle]}</span>
+                      <span>Narrative</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-6">
+                    <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={handleCloseSettings}>Cancel</button>
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60" onClick={handleSaveSettings} disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save'}</button>
                   </div>
                 </div>
-              </div>
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2 text-gray-200">Temperature</label>
-                <input type="range" min="0" max="2" step="0.01" value={apiTemperature} onChange={e => setApiTemperature(Number(e.target.value))} className="w-full" />
-                <div className="text-xs text-gray-400 mt-1">Current: {apiTemperature}</div>
-              </div>
-              {/* Response Length */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2 text-gray-200">Response Length</label>
-                <input
-                  type="range" min="0" max="4" step="1"
-                  value={responseLength}
-                  onChange={e => setResponseLength(Number(e.target.value))}
-                  className="w-full"
+              )}
+
+              {settingsTab === 'persona' && (
+                <PersonaSelector
+                  selectedPersonaId={selectedPersonaId}
+                  onSelectPersona={setSelectedPersonaId}
+                  botName={bot.name}
+                  personaName={personaName}
+                  chatId={chatId}
+                  relationshipData={relationshipData}
+                  onRelationshipChange={(partial) => setRelationshipData((prev) => ({ ...prev, ...partial }))}
+                  onRelationshipSave={handleRelationshipSave}
+                  token={authToken}
                 />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Very Short</span>
-                  <span className="font-medium text-gray-300">{['Very Short', 'Short', 'Default', 'Long', 'Very Long'][responseLength]}</span>
-                  <span>Very Long</span>
-                </div>
-              </div>
-              {/* Narrative Style */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2 text-gray-200">Writing Style</label>
-                <input
-                  type="range" min="0" max="4" step="1"
-                  value={narrativeStyle}
-                  onChange={e => setNarrativeStyle(Number(e.target.value))}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>Dialogue</span>
-                  <span className="font-medium text-gray-300">{['Dialogue-only', 'Dialogue-heavy', 'Balanced', 'Narrative-heavy', 'Narrative-only'][narrativeStyle]}</span>
-                  <span>Narrative</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={handleCloseSettings}>Cancel</button>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60" onClick={handleSaveSettings} disabled={savingSettings}>{savingSettings ? 'Saving...' : 'Save'}</button>
+              )}
             </div>
           </div>
         </div>

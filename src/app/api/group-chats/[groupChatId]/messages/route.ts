@@ -499,6 +499,8 @@ async function generateBotReply({
   userPersona,
   userHardBoundaries,
   encounterCtx,
+  memberRelationshipScore = 0,
+  memberRelationshipContext = null,
 }: {
   group: GroupChatContext
   bot: GroupBot
@@ -508,6 +510,8 @@ async function generateBotReply({
   userPersona: UserPersona | null
   userHardBoundaries: string[]
   encounterCtx?: EncounterContext
+  memberRelationshipScore?: number
+  memberRelationshipContext?: string | null
   // is_nsfw is read from group.is_nsfw
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
@@ -523,6 +527,22 @@ async function generateBotReply({
   const personaLine = userPersona
     ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
     : 'The user is chatting as themselves.'
+
+  const relationshipLine = (() => {
+    const scoreLabel = memberRelationshipScore <= -76 ? 'Archrivals'
+      : memberRelationshipScore <= -51 ? 'Bitter Enemies'
+      : memberRelationshipScore <= -26 ? 'Rivals'
+      : memberRelationshipScore <= -11 ? 'Cold Strangers'
+      : memberRelationshipScore <= 10 ? 'Neutral'
+      : memberRelationshipScore <= 25 ? 'Acquaintances'
+      : memberRelationshipScore <= 50 ? 'Friends'
+      : memberRelationshipScore <= 75 ? 'Close Friends'
+      : memberRelationshipScore <= 90 ? 'Deeply Bonded'
+      : memberRelationshipScore <= 99 ? 'Devoted' : 'Lovers'
+    const parts = [`Relationship with the user: ${scoreLabel} (score: ${memberRelationshipScore})`]
+    if (memberRelationshipContext) parts.push(`Backstory/context: ${memberRelationshipContext}`)
+    return parts.join('. ')
+  })()
 
   const isRoleplayMode = group.group_type === 'roleplay' || group.group_type === 'ttrpg'
 
@@ -570,6 +590,7 @@ async function generateBotReply({
   const systemPrompt = [
     `You are ${bot.name}. ${bot.personality}`,
     personaLine,
+    relationshipLine,
     buildContentRatingInstruction(group.is_nsfw),
     hardBoundariesGuardrail ?? null,
     isRoleplayMode ? ROLEPLAY_FORMATTING_INSTRUCTIONS : null,
@@ -884,12 +905,19 @@ export async function POST(
       : undefined
 
     const svc = serviceClient()
-    const [{ persona: userPersona }, { bots: groupBots }, userProfileRow] = await Promise.all([
+    const [{ persona: userPersona }, { bots: groupBots }, userProfileRow, memberRow] = await Promise.all([
       getActiveUserPersona(svc, groupChatId, user.id, requestedPersonaId),
       getGroupBots(svc, groupChatId),
       svc.from('users').select('hard_boundaries').eq('id', user.id).maybeSingle(),
+      svc.from('group_chat_members')
+        .select('relationship_score, relationship_context')
+        .eq('group_chat_id', groupChatId)
+        .eq('user_id', user.id)
+        .maybeSingle(),
     ])
     const userHardBoundaries = (userProfileRow.data as { hard_boundaries?: string[] } | null)?.hard_boundaries ?? []
+    const memberRelationshipScore: number = (memberRow.data as { relationship_score?: number } | null)?.relationship_score ?? 0
+    const memberRelationshipContext: string | null = (memberRow.data as { relationship_context?: string | null } | null)?.relationship_context ?? null
     const { data, error } = await svc
       .from('group_chat_messages')
       .insert({
@@ -987,6 +1015,8 @@ export async function POST(
             userPersona,
             userHardBoundaries,
             encounterCtx,
+            memberRelationshipScore,
+            memberRelationshipContext,
           })
 
           if (botReply.warning) {
