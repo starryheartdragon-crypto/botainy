@@ -629,7 +629,21 @@ export default function ProfilePage() {
               </div>
             </div>
           ) : (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {username && (
+                <a
+                  href={`/profile/${username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2 bg-gray-700 text-gray-200 rounded-full hover:bg-gray-600 transition font-medium flex items-center gap-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  Preview Public Profile
+                </a>
+              )}
               <button
                 type="button"
                 onClick={handleStartEdit}
