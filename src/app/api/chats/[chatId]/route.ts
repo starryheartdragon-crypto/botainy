@@ -70,7 +70,7 @@ export async function GET(
 
     const withPersonaQuery = await serviceClient
       .from('chats')
-      .select('id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, created_at, updated_at')
+      .select('id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, chat_tone, created_at, updated_at')
       .eq('id', chatId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -84,6 +84,7 @@ export async function GET(
       api_temperature?: number | null
       response_length?: number | null
       narrative_style?: number | null
+      chat_tone?: string | null
       created_at?: string
       updated_at?: string
     } | null = null
@@ -147,6 +148,7 @@ export async function GET(
       api_temperature: chat.api_temperature ?? 0.9,
       response_length: chat.response_length ?? 1,
       narrative_style: chat.narrative_style ?? 1,
+      chat_tone: chat.chat_tone ?? null,
       bot: safeBot,
     })
   } catch (err: unknown) {
@@ -220,7 +222,7 @@ export async function PATCH(
     const { serviceClient } = getSupabaseClients()
 
     const body = await req.json()
-    const { is_nsfw, api_temperature, response_length, narrative_style } = body
+    const { is_nsfw, api_temperature, response_length, narrative_style, chat_tone } = body
 
     const updates: Record<string, unknown> = {}
 
@@ -244,6 +246,12 @@ export async function PATCH(
         return NextResponse.json({ error: 'narrative_style must be 0, 1, 2, 3, or 4' }, { status: 400 })
       }
       updates.narrative_style = narrative_style
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'chat_tone')) {
+      if (chat_tone !== null && (typeof chat_tone !== 'string' || chat_tone.trim().length > 200)) {
+        return NextResponse.json({ error: 'chat_tone must be a string of up to 200 characters or null' }, { status: 400 })
+      }
+      updates.chat_tone = chat_tone === null ? null : chat_tone.trim() || null
     }
 
     if (Object.keys(updates).length === 0) {

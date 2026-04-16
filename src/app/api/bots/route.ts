@@ -26,6 +26,7 @@ type CreateBotPayload = {
   sourceExcerpts?: string | null
   exampleDialogues?: ExampleDialogue[] | null
   characterQuotes?: string[] | null
+  defaultTone?: string | null
 }
 
 async function getUserFromAuthHeader(authHeader: string | null) {
@@ -198,6 +199,7 @@ export async function POST(req: NextRequest) {
     const characterQuotes = Array.isArray(body.characterQuotes)
       ? (body.characterQuotes as unknown[]).filter((q): q is string => typeof q === 'string').slice(0, 10)
       : null
+    const defaultTone = typeof body.defaultTone === 'string' ? body.defaultTone.trim().slice(0, 200) || null : null
 
     if (!name || !description || !personality || !universe) {
       return NextResponse.json(
@@ -239,6 +241,7 @@ export async function POST(req: NextRequest) {
         source_excerpts: sourceExcerpts,
         example_dialogues: exampleDialogues && exampleDialogues.length > 0 ? exampleDialogues : null,
         character_quotes: characterQuotes && characterQuotes.length > 0 ? characterQuotes : null,
+        default_tone: defaultTone,
       })
       .select('id,is_published')
       .single()

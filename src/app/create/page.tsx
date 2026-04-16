@@ -30,6 +30,7 @@ export default function CreateBotPage() {
   const [botAge, setBotAge] = useState("")
   const [botRules, setBotRules] = useState("")
   const [botStyle, setBotStyle] = useState("")
+  const [botDefaultTone, setBotDefaultTone] = useState("")
   const [botSecrets, setBotSecrets] = useState("")
   const [botSourceExcerpts, setBotSourceExcerpts] = useState("")
   const [botCharacterQuotes, setBotCharacterQuotes] = useState("")
@@ -534,6 +535,7 @@ export default function CreateBotPage() {
             .filter(Boolean)
             .slice(0, 10),
           exampleDialogues: botExampleDialogues.filter((d) => d.user.trim() && d.bot.trim()),
+          defaultTone: botDefaultTone.trim() || null,
         }),
       })
 
@@ -559,6 +561,7 @@ export default function CreateBotPage() {
       setBotAge("")
       setBotRules("")
       setBotStyle("")
+      setBotDefaultTone("")
       setBotTtrpgRole("NPC")
       setBotSourceExcerpts("")
       setBotCharacterQuotes("")
@@ -1066,6 +1069,19 @@ export default function CreateBotPage() {
                       placeholder="Formal, poetic, sarcastic, short answers..."
                       className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                       rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1">Default Tone</label>
+                    <p className="text-xs text-gray-500 mb-2">The emotional register this character defaults to in chats. Users can override this per-chat in their settings.</p>
+                    <input
+                      type="text"
+                      maxLength={200}
+                      value={botDefaultTone}
+                      onChange={(e) => setBotDefaultTone(e.target.value)}
+                      placeholder="e.g. Romantic, Dark, Playful, Mysterious"
+                      className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                     />
                   </div>
 

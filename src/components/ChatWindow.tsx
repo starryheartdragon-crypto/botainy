@@ -13,6 +13,7 @@ import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
 import { SoundtrackDrawer } from './SoundtrackDrawer'
 import { RelationshipData } from './RelationshipContextPanel'
+import { TONE_PRESETS } from '@/lib/roleplayFormatting'
 
 type MessagePayload = ChatMessage & {
   chat_id?: string
@@ -49,6 +50,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'general' | 'persona'>('general')
+  const [chatTone, setChatTone] = useState<string>('')
   // Pause profile music when in a chat
   const pauseMusic = useMusicStore((s) => s.pause)
   useEffect(() => { pauseMusic() }, [pauseMusic])
@@ -68,6 +70,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
           if (typeof data.api_temperature === 'number') setApiTemperature(data.api_temperature)
           if (typeof data.response_length === 'number') setResponseLength(data.response_length)
           if (typeof data.narrative_style === 'number') setNarrativeStyle(data.narrative_style)
+          if (typeof data.chat_tone === 'string') setChatTone(data.chat_tone)
+          else if (data.chat_tone === null) setChatTone('')
         }
       } catch {}
     }
@@ -256,7 +260,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       const resp = await fetch(`/api/chats/${chatId}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ api_temperature: apiTemperature, response_length: responseLength, narrative_style: narrativeStyle }),
+        body: JSON.stringify({ api_temperature: apiTemperature, response_length: responseLength, narrative_style: narrativeStyle, chat_tone: chatTone.trim() || null }),
       })
       if (resp.ok) {
         toast.success('Settings saved!')
@@ -736,6 +740,42 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
                       <span className="font-medium text-gray-300">{['Dialogue-only', 'Dialogue-heavy', 'Balanced', 'Narrative-heavy', 'Narrative-only'][narrativeStyle]}</span>
                       <span>Narrative</span>
                     </div>
+                  </div>
+                  {/* Chat Tone */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-1 text-gray-200">Tone</label>
+                    <p className="text-xs text-gray-400 mb-2">Shapes the emotional register of every response. Choose a preset or type your own.</p>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {TONE_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => setChatTone(chatTone === preset ? '' : preset)}
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                            chatTone === preset
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={200}
+                      placeholder="Or type a custom tone…"
+                      value={chatTone}
+                      onChange={e => setChatTone(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                    />
+                    {chatTone.trim() && (
+                      <button
+                        onClick={() => setChatTone('')}
+                        className="mt-1 text-xs text-gray-500 hover:text-gray-300"
+                      >
+                        ✕ Clear tone
+                      </button>
+                    )}
                   </div>
                   <div className="flex justify-end gap-2 mt-6">
                     <button className="bg-gray-700 text-gray-200 px-4 py-2 rounded hover:bg-gray-600" onClick={handleCloseSettings}>Cancel</button>

@@ -25,6 +25,7 @@ type UpdateBotPayload = {
   sourceExcerpts?: string | null
   exampleDialogues?: ExampleDialogue[] | null
   characterQuotes?: string[] | null
+  defaultTone?: string | null
 }
 
 async function getUserFromAuthHeader(authHeader: string | null) {
@@ -81,6 +82,7 @@ export async function PATCH(
       source_excerpts?: string | null
       example_dialogues?: ExampleDialogue[] | null
       character_quotes?: string[] | null
+      default_tone?: string | null
     } = {}
 
     if (typeof body.name === 'string') {
@@ -193,6 +195,12 @@ export async function PATCH(
       const raw = body.characterQuotes
       updateData.character_quotes = Array.isArray(raw)
         ? (raw as unknown[]).filter((q): q is string => typeof q === 'string').slice(0, 10)
+        : null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'defaultTone')) {
+      updateData.default_tone = typeof body.defaultTone === 'string'
+        ? body.defaultTone.trim().slice(0, 200) || null
         : null
     }
 

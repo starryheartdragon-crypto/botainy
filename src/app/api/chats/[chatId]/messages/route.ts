@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getOpenRouterErrorMessage, resolveOpenRouterApiKey, resolveOpenRouterModel, resolveOpenRouterReferer } from '@/lib/openrouterServer'
-import { buildContentRatingInstruction, buildHardBoundariesGuardrail, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
+import { buildContentRatingInstruction, buildHardBoundariesGuardrail, buildToneInstruction, FOURTH_WALL_MUSIC_GUARDRAIL, NSFW_ROLEPLAY_RULES, ROLEPLAY_FORMATTING_INSTRUCTIONS } from '@/lib/roleplayFormatting'
 import {
   deriveEncounterContext,
   buildDmEncounterDirectives,
@@ -10,7 +10,7 @@ import {
 } from '@/lib/encounterEngine'
 
 type PersonaContext = { name: string; description: string | null }
-type BotInfo = { name: string; personality: string; source_excerpts: string | null; example_dialogues: Array<{ user: string; bot: string }> | null; character_quotes: string[] | null }
+type BotInfo = { name: string; personality: string; source_excerpts: string | null; example_dialogues: Array<{ user: string; bot: string }> | null; character_quotes: string[] | null; default_tone: string | null }
 type RelationshipEvent = { id: string; date: string; description: string }
 type ChatWithRelations = {
   id: string
@@ -20,6 +20,7 @@ type ChatWithRelations = {
   api_temperature: number | null
   response_length: number | null
   narrative_style: number | null
+  chat_tone: string | null
   bots: BotInfo | BotInfo[] | null
   personas: PersonaContext | PersonaContext[] | null
 }
@@ -198,7 +199,7 @@ export async function POST(
     const [{ data: chat, error: chatError }, { data: userProfile }] = await Promise.all([
       serviceClient
         .from('chats')
-        .select('id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, bots(personality, name, source_excerpts, example_dialogues, character_quotes), personas(name, description)')
+        .select('id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, chat_tone, bots(personality, name, source_excerpts, example_dialogues, character_quotes, default_tone), personas(name, description)')
         .eq('id', chatId)
         .single(),
       serviceClient
@@ -377,6 +378,7 @@ export async function POST(
       ...(typedChat.is_nsfw ? [NSFW_ROLEPLAY_RULES] : []),
       ...(buildResponseLengthInstruction(typedChat.response_length) ? [buildResponseLengthInstruction(typedChat.response_length)!] : []),
       ...(buildNarrativeStyleInstruction(typedChat.narrative_style) ? [buildNarrativeStyleInstruction(typedChat.narrative_style)!] : []),
+      ...(buildToneInstruction(typedChat.chat_tone ?? botInfo.default_tone) ? [buildToneInstruction(typedChat.chat_tone ?? botInfo.default_tone)!] : []),
       ...buildSourceMaterialBlock(botInfo),
       ...(encounterDirective ? [encounterDirective] : []),
     ].join('\n\n')

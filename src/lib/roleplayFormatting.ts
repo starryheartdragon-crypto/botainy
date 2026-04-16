@@ -189,3 +189,42 @@ export function buildHardBoundariesGuardrail(
     ...instructions,
   ].join('\n\n')
 }
+
+// ---------------------------------------------------------------------------
+// CHAT TONE
+// ---------------------------------------------------------------------------
+
+/** Preset tone labels available in the chat settings UI. */
+export const TONE_PRESETS = [
+  'Romantic',
+  'Flirty',
+  'Playful',
+  'Casual / Friendly',
+  'Humorous',
+  'Mysterious',
+  'Serious',
+  'Dark',
+  'Tense / Suspenseful',
+  'Dramatic',
+  'Cold / Distant',
+  'Warm / Nurturing',
+] as const
+
+export type TonePreset = (typeof TONE_PRESETS)[number]
+
+/**
+ * Builds a tone modifier block injected into the system prompt.
+ * Accepts a preset label or a freeform custom description.
+ * Returns null when tone is null / empty (no injection needed).
+ */
+export function buildToneInstruction(tone: string | null | undefined): string | null {
+  const trimmed = tone?.trim()
+  if (!trimmed) return null
+
+  return (
+    '### **TONE DIRECTIVE**\n' +
+    `Adopt a **${trimmed}** tone throughout this conversation. ` +
+    'This directive shapes the overall emotional register, word choices, pacing, and atmosphere of every response you give. ' +
+    'Blend it naturally with your character voice — do NOT announce or reference the tone explicitly. Just embody it.'
+  )
+}
