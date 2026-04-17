@@ -252,6 +252,14 @@ export default function ExplorePage() {
   const [reporting, setReporting] = useState<string | null>(null)
   const [personaPromptOpen, setPersonaPromptOpen] = useState(false)
   const [pendingBotId, setPendingBotId] = useState<string | null>(null)
+  const [openerPreviewOpen, setOpenerPreviewOpen] = useState(false)
+  const [openerPreviewContent, setOpenerPreviewContent] = useState('')
+  const [openerPreviewMessageId, setOpenerPreviewMessageId] = useState<string | null>(null)
+  const [openerPreviewChatId, setOpenerPreviewChatId] = useState<string | null>(null)
+  const [openerPreviewPersonaId, setOpenerPreviewPersonaId] = useState<string | null>(null)
+  const [openerPreviewScenario, setOpenerPreviewScenario] = useState<string | null>(null)
+  const [openerPreviewBotName, setOpenerPreviewBotName] = useState('')
+  const [openerRegenerating, setOpenerRegenerating] = useState(false)
   const [creatorBadges, setCreatorBadges] = useState<Record<string, CreatorBadge>>({})
   const router = useRouter()
 
@@ -598,10 +606,17 @@ export default function ExplorePage() {
     setRelationshipMeters(baseline)
   }
 
-  const handleStartChat = async (botId: string, personaId: string | null, score: number, relationshipContext: string) => {
+  const handleStartChat = async (
+    botId: string,
+    personaId: string | null,
+    score: number,
+    relationshipContext: string,
+    whoOpens: 'user' | 'bot',
+    openingScenario: string,
+  ) => {
     try {
       setLoading(botId)
-      
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) {
         router.push('/login')
@@ -620,16 +635,12 @@ export default function ExplorePage() {
       if (!resp.ok) {
         const responseText = await resp.text()
         let apiError = 'Unknown error'
-
         try {
           const payload = JSON.parse(responseText) as { error?: string }
           apiError = payload?.error || apiError
         } catch {
-          if (responseText.trim()) {
-            apiError = responseText.slice(0, 300)
-          }
+          if (responseText.trim()) apiError = responseText.slice(0, 300)
         }
-
         console.error(
           `Failed to create chat (status=${resp.status}, contentType=${resp.headers.get('content-type') || 'unknown'}): ${apiError}`
         )
@@ -659,11 +670,75 @@ export default function ExplorePage() {
         }
       }
 
+      if (whoOpens === 'bot') {
+        // Generate the bot's opening message before entering the chat
+        try {
+          const openerResp = await fetch(`/api/chats/${newChat.id}/opener`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              personaId: personaId ?? undefined,
+              scenario: openingScenario.trim() || undefined,
+            }),
+          })
+
+          if (openerResp.ok) {
+            const openerData = await openerResp.json() as { message: { id: string; content: string } }
+            const botName = bots.find((b) => b.id === botId)?.name ?? 'Bot'
+            setOpenerPreviewContent(openerData.message.content)
+            setOpenerPreviewMessageId(openerData.message.id)
+            setOpenerPreviewChatId(newChat.id)
+            setOpenerPreviewPersonaId(personaId)
+            setOpenerPreviewScenario(openingScenario.trim() || null)
+            setOpenerPreviewBotName(botName)
+            setOpenerPreviewOpen(true)
+            return
+          }
+        } catch {
+          // If opener generation fails, fall through to enter the chat normally
+        }
+      }
+
       router.push(`/chat/${newChat.id}`)
     } catch (error) {
       console.error('Error starting chat:', error)
     } finally {
       setLoading(null)
+    }
+  }
+
+  const handleOpenerRegenerate = async () => {
+    if (!openerPreviewChatId) return
+    setOpenerRegenerating(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      const openerResp = await fetch(`/api/chats/${openerPreviewChatId}/opener`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          personaId: openerPreviewPersonaId ?? undefined,
+          scenario: openerPreviewScenario ?? undefined,
+          replaceMessageId: openerPreviewMessageId ?? undefined,
+        }),
+      })
+
+      if (openerResp.ok) {
+        const data = await openerResp.json() as { message: { id: string; content: string } }
+        setOpenerPreviewContent(data.message.content)
+        setOpenerPreviewMessageId(data.message.id)
+      }
+    } catch {
+      // swallow
+    } finally {
+      setOpenerRegenerating(false)
     }
   }
 
@@ -1109,18 +1184,59 @@ export default function ExplorePage() {
       <PersonaPromptModal
         open={personaPromptOpen}
         title="Choose Persona for Bot Chat"
+        botName={bots.find((b) => b.id === pendingBotId)?.name}
         onCancel={() => {
           setPersonaPromptOpen(false)
           setPendingBotId(null)
         }}
-        onConfirm={async (personaId, score, relationshipContext) => {
+        onConfirm={async (personaId, score, relationshipContext, whoOpens, openingScenario) => {
           if (!pendingBotId) return
           const botId = pendingBotId
           setPersonaPromptOpen(false)
           setPendingBotId(null)
-          await handleStartChat(botId, personaId, score, relationshipContext)
+          await handleStartChat(botId, personaId, score, relationshipContext, whoOpens, openingScenario)
         }}
       />
+
+      {/* Bot opener preview modal */}
+      {openerPreviewOpen && (
+        <div className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-700 bg-gray-900 p-5 shadow-2xl">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <h3 className="text-lg font-semibold text-white">{openerPreviewBotName}&apos;s opening message</h3>
+            </div>
+            <div className="rounded-xl border border-gray-700 bg-gray-950 p-4 text-sm text-gray-200 whitespace-pre-wrap max-h-72 overflow-y-auto">
+              {openerRegenerating ? (
+                <span className="text-gray-500 italic">Generating a new opening…</span>
+              ) : (
+                openerPreviewContent
+              )}
+            </div>
+            <div className="mt-5 flex justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleOpenerRegenerate}
+                disabled={openerRegenerating}
+                className="px-4 py-2 rounded-full border border-gray-600 text-gray-300 hover:border-gray-400 disabled:opacity-50 transition"
+              >
+                {openerRegenerating ? 'Regenerating…' : '↻ Regenerate'}
+              </button>
+              <button
+                type="button"
+                disabled={openerRegenerating}
+                onClick={() => {
+                  setOpenerPreviewOpen(false)
+                  if (openerPreviewChatId) router.push(`/chat/${openerPreviewChatId}`)
+                }}
+                className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white disabled:opacity-50 transition"
+              >
+                Start Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
