@@ -34,7 +34,7 @@ export async function GET(
     // Resolve target user by username
     const { data: targetUser, error: userError } = await service
       .from('users')
-      .select('id, username, bio, avatar_url, created_at')
+      .select('id, username, bio, avatar_url, created_at, pronouns, location, accent_color, interest_tags')
       .eq('username', username)
       .maybeSingle()
 
@@ -46,7 +46,7 @@ export async function GET(
     // Fetch privacy settings (use defaults if none set)
     const { data: privacy } = await service
       .from('profile_privacy_settings')
-      .select('show_bio, show_avatar, show_bots, show_music, show_connections_count, show_join_date')
+      .select('show_bio, show_avatar, show_bots, show_music, show_connections_count, show_join_date, show_pronouns, show_location, show_tags, section_order')
       .eq('user_id', targetUser.id)
       .maybeSingle()
 
@@ -57,6 +57,10 @@ export async function GET(
       show_music: privacy?.show_music ?? true,
       show_connections_count: privacy?.show_connections_count ?? true,
       show_join_date: privacy?.show_join_date ?? true,
+      show_pronouns: privacy?.show_pronouns ?? true,
+      show_location: privacy?.show_location ?? true,
+      show_tags: privacy?.show_tags ?? true,
+      section_order: privacy?.section_order ?? ['bio', 'tags', 'music', 'bots', 'personas', 'guestbook'],
     }
 
     // Aggregate counts
@@ -118,6 +122,10 @@ export async function GET(
       bio: (isOwner || priv.show_bio) ? targetUser.bio : null,
       avatar_url: (isOwner || priv.show_avatar) ? targetUser.avatar_url : null,
       join_date: (isOwner || priv.show_join_date) ? targetUser.created_at : null,
+      pronouns: (isOwner || priv.show_pronouns) ? (targetUser.pronouns ?? null) : null,
+      location: (isOwner || priv.show_location) ? (targetUser.location ?? null) : null,
+      accent_color: targetUser.accent_color ?? null,
+      interest_tags: (isOwner || priv.show_tags) ? (targetUser.interest_tags ?? []) : [],
       followers_count: followersResult.count ?? 0,
       following_count: followingResult.count ?? 0,
       likes_count: likesResult.count ?? 0,
@@ -125,6 +133,7 @@ export async function GET(
       bots,
       music,
       privacy: isOwner ? priv : null,
+      section_order: priv.section_order,
       viewer_is_following: viewerIsFollowing,
       viewer_has_liked: viewerHasLiked,
       viewer_connection_status: viewerConnectionStatus,

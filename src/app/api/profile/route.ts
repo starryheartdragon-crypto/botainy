@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
     const { data: profile, error } = await serviceClient()
       .from('users')
-      .select('id, username, bio, avatar_url, hard_boundaries')
+      .select('id, username, bio, avatar_url, hard_boundaries, pronouns, location, accent_color, interest_tags')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -78,13 +78,33 @@ export async function PUT(req: NextRequest) {
 
     console.log('[Profile PUT] User authenticated:', user.id)
     const body = await req.json()
-    const { username, bio, avatar_url, hard_boundaries } = body
+    const { username, bio, avatar_url, hard_boundaries, pronouns, location, accent_color, interest_tags } = body
     console.log('[Profile PUT] Update data:', { username, bio, has_avatar: !!avatar_url, hard_boundaries })
 
     // Validate hard_boundaries if provided
     if (hard_boundaries !== undefined) {
       if (!Array.isArray(hard_boundaries) || hard_boundaries.some((b: unknown) => typeof b !== 'string')) {
         return NextResponse.json({ error: 'hard_boundaries must be an array of strings' }, { status: 400 })
+      }
+    }
+
+    // Validate interest_tags
+    if (interest_tags !== undefined) {
+      if (!Array.isArray(interest_tags) || interest_tags.some((t: unknown) => typeof t !== 'string')) {
+        return NextResponse.json({ error: 'interest_tags must be an array of strings' }, { status: 400 })
+      }
+      if (interest_tags.length > 20) {
+        return NextResponse.json({ error: 'Maximum 20 interest tags allowed' }, { status: 400 })
+      }
+      if (interest_tags.some((t: string) => t.length > 30)) {
+        return NextResponse.json({ error: 'Each interest tag must be 30 characters or less' }, { status: 400 })
+      }
+    }
+
+    // Validate accent_color (must be valid hex or null)
+    if (accent_color !== undefined && accent_color !== null) {
+      if (typeof accent_color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(accent_color)) {
+        return NextResponse.json({ error: 'accent_color must be a valid hex color (e.g. #a855f7)' }, { status: 400 })
       }
     }
 
@@ -99,6 +119,10 @@ export async function PUT(req: NextRequest) {
         bio,
         avatar_url,
         ...(hard_boundaries !== undefined ? { hard_boundaries } : {}),
+        ...(pronouns !== undefined ? { pronouns } : {}),
+        ...(location !== undefined ? { location } : {}),
+        ...(accent_color !== undefined ? { accent_color } : {}),
+        ...(interest_tags !== undefined ? { interest_tags } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id)

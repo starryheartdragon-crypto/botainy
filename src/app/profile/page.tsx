@@ -36,6 +36,15 @@ export default function ProfilePage() {
   const [personaDeletingId, setPersonaDeletingId] = useState<string | null>(null)
   const [hardBoundaries, setHardBoundaries] = useState<string[]>([])
   const [originalHardBoundaries, setOriginalHardBoundaries] = useState<string[]>([])
+  const [pronouns, setPronouns] = useState("")
+  const [originalPronouns, setOriginalPronouns] = useState("")
+  const [location, setLocation] = useState("")
+  const [originalLocation, setOriginalLocation] = useState("")
+  const [accentColor, setAccentColor] = useState("#a855f7")
+  const [originalAccentColor, setOriginalAccentColor] = useState("#a855f7")
+  const [interestTags, setInterestTags] = useState<string[]>([])
+  const [originalInterestTags, setOriginalInterestTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState("")
   const [privacy, setPrivacy] = useState({
     show_bio: true,
     show_avatar: true,
@@ -43,7 +52,12 @@ export default function ProfilePage() {
     show_music: true,
     show_connections_count: true,
     show_join_date: true,
+    show_pronouns: true,
+    show_location: true,
+    show_tags: true,
   })
+  const [sectionOrder, setSectionOrder] = useState(["bio", "tags", "music", "bots", "personas", "guestbook"])
+  const [savingSectionOrder, setSavingSectionOrder] = useState(false)
   const [savingPrivacy, setSavingPrivacy] = useState(false)
 
   useEffect(() => {
@@ -75,6 +89,10 @@ export default function ProfilePage() {
           const loadedBio = data.bio ?? ""
           const loadedAvatar = data.avatar_url ?? null
           const loadedBoundaries: string[] = Array.isArray(data.hard_boundaries) ? data.hard_boundaries : []
+          const loadedPronouns = data.pronouns ?? ""
+          const loadedLocation = data.location ?? ""
+          const loadedAccentColor = data.accent_color ?? "#a855f7"
+          const loadedTags: string[] = Array.isArray(data.interest_tags) ? data.interest_tags : []
 
           setUsername(loadedUsername)
           setBio(loadedBio)
@@ -84,6 +102,14 @@ export default function ProfilePage() {
           setOriginalAvatarUrl(loadedAvatar)
           setHardBoundaries(loadedBoundaries)
           setOriginalHardBoundaries(loadedBoundaries)
+          setPronouns(loadedPronouns)
+          setOriginalPronouns(loadedPronouns)
+          setLocation(loadedLocation)
+          setOriginalLocation(loadedLocation)
+          setAccentColor(loadedAccentColor)
+          setOriginalAccentColor(loadedAccentColor)
+          setInterestTags(loadedTags)
+          setOriginalInterestTags(loadedTags)
 
           const badgeResp = await fetch(`/api/users/badges?ids=${data.id}`, {
             headers: {
@@ -134,7 +160,11 @@ export default function ProfilePage() {
               show_music: privacyData.show_music ?? true,
               show_connections_count: privacyData.show_connections_count ?? true,
               show_join_date: privacyData.show_join_date ?? true,
+              show_pronouns: privacyData.show_pronouns ?? true,
+              show_location: privacyData.show_location ?? true,
+              show_tags: privacyData.show_tags ?? true,
             })
+            setSectionOrder(privacyData.section_order ?? ["bio", "tags", "music", "bots", "personas", "guestbook"])
           }
         } else {
           const error = await resp.json()
@@ -176,7 +206,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ username, bio, avatar_url: avatarUrl, hard_boundaries: hardBoundaries }),
+        body: JSON.stringify({ username, bio, avatar_url: avatarUrl, hard_boundaries: hardBoundaries, pronouns, location, accent_color: accentColor, interest_tags: interestTags }),
         signal: controller.signal,
       })
 
@@ -194,6 +224,10 @@ export default function ProfilePage() {
       setOriginalBio(bio)
       setOriginalAvatarUrl(avatarUrl)
       setOriginalHardBoundaries(hardBoundaries)
+      setOriginalPronouns(pronouns)
+      setOriginalLocation(location)
+      setOriginalAccentColor(accentColor)
+      setOriginalInterestTags(interestTags)
       setIsEditing(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save"
@@ -347,6 +381,39 @@ export default function ProfilePage() {
     }
   }
 
+  async function moveSectionUp(idx: number) {
+    if (idx === 0) return
+    const updated = [...sectionOrder]
+    ;[updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]]
+    await saveSectionOrder(updated)
+  }
+
+  async function moveSectionDown(idx: number) {
+    if (idx === sectionOrder.length - 1) return
+    const updated = [...sectionOrder]
+    ;[updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]]
+    await saveSectionOrder(updated)
+  }
+
+  async function saveSectionOrder(order: string[]) {
+    setSectionOrder(order)
+    setSavingSectionOrder(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+      const resp = await fetch('/api/profile/privacy', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ section_order: order }),
+      })
+      if (!resp.ok) toast.error('Failed to save section order')
+    } catch {
+      toast.error('Failed to save section order')
+    } finally {
+      setSavingSectionOrder(false)
+    }
+  }
+
   async function savePlaylist() {
     try {
       setMusicLoading(true)
@@ -496,6 +563,10 @@ export default function ProfilePage() {
     setBio(originalBio)
     setAvatarUrl(originalAvatarUrl)
     setHardBoundaries(originalHardBoundaries)
+    setPronouns(originalPronouns)
+    setLocation(originalLocation)
+    setAccentColor(originalAccentColor)
+    setInterestTags(originalInterestTags)
     setIsEditing(false)
   }
 
@@ -696,6 +767,130 @@ export default function ProfilePage() {
                   rows={4}
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-300">Pronouns</label>
+                  <div className="flex flex-wrap gap-1 mt-1 mb-2">
+                    {["she/her", "he/him", "they/them", "she/they", "he/they", "any/all"].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPronouns(p)}
+                        className={`px-2 py-0.5 rounded-full text-xs border transition ${pronouns === p ? "bg-purple-700 border-purple-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300 hover:border-purple-500"}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    value={pronouns}
+                    onChange={(e) => setPronouns(e.target.value)}
+                    placeholder="or type custom..."
+                    maxLength={40}
+                    disabled={loading}
+                    className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white text-sm disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300">Location</label>
+                  <input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. Tokyo, Japan"
+                    maxLength={80}
+                    disabled={loading}
+                    className="w-full mt-1 p-2 bg-gray-900 border border-gray-700 rounded text-white text-sm disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300">Accent Color</label>
+                <div className="flex items-center gap-3 mt-1">
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    disabled={loading}
+                    className="w-10 h-10 rounded cursor-pointer border border-gray-700 bg-transparent disabled:opacity-60"
+                  />
+                  <input
+                    value={accentColor}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (/^#[0-9a-fA-F]{0,6}$/.test(val)) setAccentColor(val)
+                    }}
+                    maxLength={7}
+                    disabled={loading}
+                    className="w-28 p-2 bg-gray-900 border border-gray-700 rounded text-white text-sm font-mono disabled:opacity-60"
+                  />
+                  <span
+                    className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                    style={{ backgroundColor: accentColor, color: '#fff' }}
+                  >
+                    Preview
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300">
+                  Interest Tags <span className="text-gray-500 text-xs">({interestTags.length}/20)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                  {interestTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-600 bg-gray-800 text-gray-200"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setInterestTags((prev) => prev.filter((t) => t !== tag))}
+                        className="text-gray-500 hover:text-red-400 transition ml-0.5"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault()
+                        const trimmed = tagInput.trim().replace(/,+$/, '')
+                        if (trimmed && trimmed.length <= 30 && !interestTags.includes(trimmed) && interestTags.length < 20) {
+                          setInterestTags((prev) => [...prev, trimmed])
+                          setTagInput("")
+                        }
+                      }
+                    }}
+                    placeholder="Type tag + Enter"
+                    maxLength={30}
+                    disabled={loading || interestTags.length >= 20}
+                    className="flex-1 p-2 bg-gray-900 border border-gray-700 rounded text-white text-sm disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = tagInput.trim()
+                      if (trimmed && trimmed.length <= 30 && !interestTags.includes(trimmed) && interestTags.length < 20) {
+                        setInterestTags((prev) => [...prev, trimmed])
+                        setTagInput("")
+                      }
+                    }}
+                    disabled={loading || !tagInput.trim() || interestTags.length >= 20}
+                    className="px-3 py-2 bg-purple-700 text-white rounded hover:bg-purple-600 disabled:opacity-50 text-sm"
+                  >
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Press Enter or comma to add. Max 20 tags, 30 chars each.</p>
+              </div>
             </>
           ) : (
             <div className="space-y-5">
@@ -710,6 +905,8 @@ export default function ProfilePage() {
                 )}
                 <div className="min-w-0">
                   <p className="text-2xl font-semibold text-white truncate">{username || "Set a username"}</p>
+                  {pronouns && <p className="text-sm text-gray-400">{pronouns}</p>}
+                  {location && <p className="text-xs text-gray-500">📍 {location}</p>}
                 </div>
               </div>
 
@@ -717,6 +914,26 @@ export default function ProfilePage() {
                 <p className="text-sm text-gray-300 whitespace-pre-wrap break-words">
                   {bio.trim() ? bio : "No bio yet."}
                 </p>
+              </div>
+
+              {interestTags.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {interestTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-600 bg-gray-800 text-gray-300"
+                      style={{ borderColor: accentColor }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-gray-500">Accent color:</span>
+                <span className="w-5 h-5 rounded-full border border-gray-600" style={{ backgroundColor: accentColor }} />
+                <span className="text-xs text-gray-500 font-mono">{accentColor}</span>
               </div>
             </div>
           )}
@@ -1029,6 +1246,9 @@ export default function ProfilePage() {
               [
                 { key: "show_bio" as const, label: "Bio", desc: "Show your bio text to visitors" },
                 { key: "show_avatar" as const, label: "Avatar", desc: "Show your profile picture" },
+                { key: "show_pronouns" as const, label: "Pronouns", desc: "Show your pronouns" },
+                { key: "show_location" as const, label: "Location", desc: "Show your location" },
+                { key: "show_tags" as const, label: "Interest Tags", desc: "Show your interest tags" },
                 { key: "show_bots" as const, label: "Public Bots", desc: "Show your published bots" },
                 { key: "show_music" as const, label: "Music", desc: "Show your music/soundtrack" },
                 { key: "show_connections_count" as const, label: "Connections Count", desc: "Show how many connections you have" },
@@ -1053,6 +1273,54 @@ export default function ProfilePage() {
                 </button>
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Section Order */}
+        <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Profile Section Order</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Reorder sections on your public profile. Changes save instantly.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {sectionOrder.map((section, idx) => {
+              const labels: Record<string, string> = {
+                bio: "Bio",
+                tags: "Interest Tags",
+                music: "Music",
+                bots: "Public Bots",
+                personas: "Personas",
+                guestbook: "Guestbook",
+              }
+              return (
+                <div key={section} className="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-lg">
+                  <span className="text-gray-400 text-xs w-5 text-center">{idx + 1}</span>
+                  <span className="flex-1 text-sm text-white font-medium">{labels[section] ?? section}</span>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveSectionUp(idx)}
+                      disabled={idx === 0 || savingSectionOrder}
+                      className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-30"
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveSectionDown(idx)}
+                      disabled={idx === sectionOrder.length - 1 || savingSectionOrder}
+                      className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-30"
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

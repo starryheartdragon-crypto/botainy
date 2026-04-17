@@ -27,6 +27,10 @@ const DEFAULT_PRIVACY = {
   show_music: true,
   show_connections_count: true,
   show_join_date: true,
+  show_pronouns: true,
+  show_location: true,
+  show_tags: true,
+  section_order: ['bio', 'tags', 'music', 'bots', 'personas', 'guestbook'] as string[],
 }
 
 // GET /api/profile/privacy — get current user's privacy settings
@@ -55,16 +59,26 @@ export async function PUT(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const allowedKeys = Object.keys(DEFAULT_PRIVACY) as Array<keyof typeof DEFAULT_PRIVACY>
-    const updates: Partial<typeof DEFAULT_PRIVACY> = {}
+    const boolKeys = ['show_bio', 'show_avatar', 'show_bots', 'show_music', 'show_connections_count', 'show_join_date', 'show_pronouns', 'show_location', 'show_tags'] as const
+    const updates: Record<string, unknown> = {}
 
-    for (const key of allowedKeys) {
+    for (const key of boolKeys) {
       if (Object.prototype.hasOwnProperty.call(body, key)) {
         if (typeof body[key] !== 'boolean') {
           return NextResponse.json({ error: `${key} must be a boolean` }, { status: 400 })
         }
         updates[key] = body[key]
       }
+    }
+
+    // Handle section_order separately
+    if (Object.prototype.hasOwnProperty.call(body, 'section_order')) {
+      const order = body.section_order
+      const validSections = ['bio', 'tags', 'music', 'bots', 'personas', 'guestbook']
+      if (!Array.isArray(order) || order.some((s: unknown) => typeof s !== 'string' || !validSections.includes(s as string))) {
+        return NextResponse.json({ error: 'section_order must be an array of valid section names' }, { status: 400 })
+      }
+      updates.section_order = order
     }
 
     if (Object.keys(updates).length === 0) {
@@ -81,7 +95,7 @@ export async function PUT(req: NextRequest) {
     // Return updated settings
     const { data } = await service
       .from('profile_privacy_settings')
-      .select('show_bio, show_avatar, show_bots, show_music, show_connections_count, show_join_date')
+      .select('show_bio, show_avatar, show_bots, show_music, show_connections_count, show_join_date, show_pronouns, show_location, show_tags, section_order')
       .eq('user_id', user.id)
       .maybeSingle()
 

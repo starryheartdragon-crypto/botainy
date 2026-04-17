@@ -5,6 +5,10 @@ export interface User {
   birthday: string | null
   avatarUrl: string | null
   bio: string | null
+  pronouns: string | null
+  location: string | null
+  accentColor: string | null
+  interestTags: string[]
   createdAt: string
   updatedAt: string
 }
