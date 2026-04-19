@@ -24,6 +24,7 @@ export default function CreateBotPage() {
   const [universeRequestMessage, setUniverseRequestMessage] = useState<string | null>(null)
   const [botDescription, setBotDescription] = useState("")
   const [botPersonality, setBotPersonality] = useState("")
+  const [botAppearance, setBotAppearance] = useState("")
   const [botBackstory, setBotBackstory] = useState("")
   const [botGoals, setBotGoals] = useState("")
   const [botGender, setBotGender] = useState("")
@@ -370,6 +371,7 @@ export default function CreateBotPage() {
         const npcSections = [
           "TTRPG Role: NPC",
           `Core Personality: ${botPersonality.trim()}`,
+          botAppearance.trim() ? `### **Appearance**\n${botAppearance.trim()}` : null,
           botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
           botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
           botGender.trim() ? `Gender: ${botGender.trim()}` : null,
@@ -498,6 +500,7 @@ export default function CreateBotPage() {
 
       const personalitySections = [
         `Core Personality: ${botPersonality.trim()}`,
+        botAppearance.trim() ? `### **Appearance**\n${botAppearance.trim()}` : null,
         botBackstory.trim() ? `### **Backstory**\n${botBackstory.trim()}` : null,
         botGoals.trim() ? `### **Goals**\n${botGoals.trim()}` : null,
         botGender.trim() ? `Gender: ${botGender.trim()}` : null,
@@ -526,6 +529,7 @@ export default function CreateBotPage() {
           universe: botUniverse.trim(),
           description: finalDescription,
           personality: finalPersonality,
+          appearance: botAppearance.trim() || null,
           avatarUrl: botAvatarUrl,
           isPublished: botPublishNow,
           sourceExcerpts: botSourceExcerpts.trim() || null,
@@ -555,6 +559,7 @@ export default function CreateBotPage() {
       setBotUniverse("")
       setBotDescription("")
       setBotPersonality("")
+      setBotAppearance("")
       setBotBackstory("")
       setBotGoals("")
       setBotGender("")
@@ -992,6 +997,18 @@ export default function CreateBotPage() {
                       rows={4}
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Appearance</label>
+                    <textarea
+                      value={botAppearance}
+                      onChange={(e) => setBotAppearance(e.target.value)}
+                      placeholder="Physical features, build, hair, eyes, clothing, distinguishing marks..."
+                      className="w-full p-3 bg-gray-950 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      rows={3}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional. For canon characters, the AI already knows their look from training data.</p>
                   </div>
 
                   <div>

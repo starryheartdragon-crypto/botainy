@@ -26,6 +26,7 @@ type UpdateBotPayload = {
   exampleDialogues?: ExampleDialogue[] | null
   characterQuotes?: string[] | null
   defaultTone?: string | null
+  appearance?: string | null
 }
 
 async function getUserFromAuthHeader(authHeader: string | null) {
@@ -83,6 +84,7 @@ export async function PATCH(
       example_dialogues?: ExampleDialogue[] | null
       character_quotes?: string[] | null
       default_tone?: string | null
+      appearance?: string | null
     } = {}
 
     if (typeof body.name === 'string') {
@@ -110,6 +112,7 @@ export async function PATCH(
       'rules',
       'style',
       'characterProfile',
+      'appearance',
     ].some((field) => Object.prototype.hasOwnProperty.call(body, field))
 
     if (hasProfileUpdate) {
@@ -201,6 +204,12 @@ export async function PATCH(
     if (Object.prototype.hasOwnProperty.call(body, 'defaultTone')) {
       updateData.default_tone = typeof body.defaultTone === 'string'
         ? body.defaultTone.trim().slice(0, 200) || null
+        : null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'appearance')) {
+      updateData.appearance = typeof body.appearance === 'string'
+        ? body.appearance.trim().slice(0, 2000) || null
         : null
     }
 

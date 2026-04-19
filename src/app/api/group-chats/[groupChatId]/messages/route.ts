@@ -105,6 +105,7 @@ type GroupBot = {
   id: string
   name: string
   personality: string
+  appearance: string | null
   avatar_url: string | null
   source_excerpts: string | null
   example_dialogues: Array<{ user: string; bot: string }> | null
@@ -525,7 +526,7 @@ async function generateBotReply({
   const model = resolveOpenRouterModel('openrouter/auto')
 
   const personaLine = userPersona
-    ? `The user you are speaking with is playing as ${userPersona.name}${userPersona.description ? `: ${userPersona.description}` : ''}.`
+    ? `### **USER'S PERSONA**\nThe user is roleplaying as **${userPersona.name}**.${userPersona.description ? `\n${userPersona.description}` : ''}`
     : 'The user is chatting as themselves.'
 
   const relationshipLine = (() => {
@@ -589,6 +590,7 @@ async function generateBotReply({
 
   const systemPrompt = [
     `You are ${bot.name}. ${bot.personality}`,
+    ...(bot.appearance?.trim() ? [`### **YOUR APPEARANCE**\n${bot.appearance.trim()}`] : []),
     personaLine,
     relationshipLine,
     buildContentRatingInstruction(group.is_nsfw),
@@ -788,7 +790,7 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
 
   const { data: botRows, error: botError } = await svc
     .from('bots')
-    .select('id, name, personality, avatar_url, source_excerpts, example_dialogues, character_quotes')
+    .select('id, name, personality, appearance, avatar_url, source_excerpts, example_dialogues, character_quotes')
     .in('id', botIds)
 
   if (botError) {
@@ -803,6 +805,7 @@ async function getGroupBots(svc: ReturnType<typeof serviceClient>, groupChatId: 
       id: String(row.id || ''),
       name: String(row.name || 'Bot'),
       personality: String(row.personality || ''),
+      appearance: typeof row.appearance === 'string' ? row.appearance : null,
       avatar_url: typeof row.avatar_url === 'string' ? row.avatar_url : null,
       source_excerpts: typeof row.source_excerpts === 'string' ? row.source_excerpts : null,
       example_dialogues: Array.isArray(row.example_dialogues) ? row.example_dialogues as Array<{ user: string; bot: string }> : null,

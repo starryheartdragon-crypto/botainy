@@ -25,6 +25,7 @@ export interface Bot {
   universe: string | null
   description: string
   personality: string
+  appearance: string | null
   sourceExcerpts: string | null
   exampleDialogues: ExampleDialogue[] | null
   characterQuotes: string[] | null

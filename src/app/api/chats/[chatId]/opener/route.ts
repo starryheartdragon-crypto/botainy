@@ -19,6 +19,7 @@ type PersonaContext = { name: string; description: string | null }
 type BotInfo = {
   name: string
   personality: string
+  appearance: string | null
   source_excerpts: string | null
   example_dialogues: Array<{ user: string; bot: string }> | null
   character_quotes: string[] | null
@@ -169,7 +170,7 @@ export async function POST(
       serviceClient
         .from('chats')
         .select(
-          'id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, chat_tone, bots(personality, name, source_excerpts, example_dialogues, character_quotes, default_tone), personas(name, description)'
+          'id, user_id, bot_id, persona_id, is_nsfw, api_temperature, response_length, narrative_style, chat_tone, bots(personality, name, appearance, source_excerpts, example_dialogues, character_quotes, default_tone), personas(name, description)'
         )
         .eq('id', chatId)
         .single(),
@@ -206,7 +207,7 @@ export async function POST(
 
     // Build persona prompt
     const personaPrompt = personaContext
-      ? `The user is roleplaying as ${personaContext.name}.${personaContext.description ? ` Persona details: ${personaContext.description}` : ''}`
+      ? `### **USER'S PERSONA**\nThe user is roleplaying as **${personaContext.name}**.${personaContext.description ? `\n${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
 
     // Look up relationship data
@@ -261,6 +262,7 @@ export async function POST(
 
     const systemPrompt = [
       `You are ${botInfo.name}. ${botInfo.personality}`,
+      ...(botInfo.appearance?.trim() ? [`### **YOUR APPEARANCE**\n${botInfo.appearance.trim()}`] : []),
       personaPrompt,
       ...(relationshipBlock ? [relationshipBlock] : []),
       buildContentRatingInstruction(typedChat.is_nsfw ?? false),
