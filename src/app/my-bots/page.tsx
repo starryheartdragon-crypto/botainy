@@ -6,6 +6,8 @@ import toast from "react-hot-toast"
 import { BOT_UNIVERSES, UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
 
+type ExampleDialogue = { user: string; bot: string }
+
 type MyBot = {
   id: string
   name: string
@@ -15,6 +17,11 @@ type MyBot = {
   avatar_url: string | null
   is_published: boolean
   created_at: string
+  appearance: string | null
+  source_excerpts: string | null
+  character_quotes: string[] | null
+  default_tone: string | null
+  example_dialogues: ExampleDialogue[] | null
 }
 
 function normalizePublishedFlag(value: unknown): boolean {
@@ -35,6 +42,7 @@ type ParsedCharacterProfile = {
   age: string
   rules: string
   style: string
+  appearance: string
 }
 
 function getTtrpgRole(bot: MyBot): "NPC" | "DM" | "PC" | "Encounter" | null {
@@ -54,35 +62,74 @@ function getTtrpgRole(bot: MyBot): "NPC" | "DM" | "PC" | "Encounter" | null {
 
 function parseCharacterProfile(value: string): ParsedCharacterProfile {
   const parsed: ParsedCharacterProfile = {
-    personality: value.trim(),
+    personality: "",
     backstory: "",
     goals: "",
     gender: "",
     age: "",
     rules: "",
     style: "",
+    appearance: "",
   }
 
-  const lines = value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
+  type Section = keyof ParsedCharacterProfile
+  const mdHeadingMap: Record<string, Section> = {
+    appearance: "appearance",
+    backstory: "backstory",
+    goals: "goals",
+    "rules / boundaries": "rules",
+    "speaking style": "style",
+  }
+
+  const lines = value.split("\n").map((line) => line.trim())
+  let currentMdSection: Section | null = null
+  const mdSectionLines: Partial<Record<Section, string[]>> = {}
 
   for (const line of lines) {
+    if (!line) {
+      currentMdSection = null
+      continue
+    }
+
+    // Handle markdown headings: ### **Heading**
+    const headingMatch = line.match(/^###\s+\*\*(.+?)\*\*\s*$/)
+    if (headingMatch) {
+      const headingText = headingMatch[1].toLowerCase()
+      currentMdSection = mdHeadingMap[headingText] ?? null
+      continue
+    }
+
+    if (currentMdSection) {
+      if (!mdSectionLines[currentMdSection]) mdSectionLines[currentMdSection] = []
+      mdSectionLines[currentMdSection]!.push(line)
+      continue
+    }
+
     if (!line.includes(":")) continue
-    const [rawKey, ...rest] = line.split(":")
-    const key = rawKey.trim().toLowerCase()
-    const content = rest.join(":").trim()
+    const colonIdx = line.indexOf(":")
+    const key = line.slice(0, colonIdx).trim().toLowerCase()
+    const content = line.slice(colonIdx + 1).trim()
     if (!content) continue
 
     if (key === "core personality") parsed.personality = content
     else if (key === "backstory") parsed.backstory = content
-    else if (key === "goals & motivations") parsed.goals = content
+    else if (key === "goals & motivations" || key === "goals") parsed.goals = content
     else if (key === "gender") parsed.gender = content
     else if (key === "age") parsed.age = content
     else if (key === "rules / boundaries") parsed.rules = content
     else if (key === "speaking style") parsed.style = content
+    else if (key === "appearance") parsed.appearance = content
   }
+
+  // Apply multi-line markdown section content (only if key:value didn't already populate it)
+  for (const [section, sectionLines] of Object.entries(mdSectionLines)) {
+    const key = section as Section
+    if (sectionLines && sectionLines.length > 0 && !parsed[key]) {
+      (parsed[key] as string) = sectionLines.join("\n")
+    }
+  }
+
+  if (!parsed.personality) parsed.personality = value.trim()
 
   return parsed
 }
@@ -110,6 +157,11 @@ export default function MyBotsPage() {
   const [editRules, setEditRules] = useState("")
   const [editStyle, setEditStyle] = useState("")
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null)
+  const [editAppearance, setEditAppearance] = useState("")
+  const [editDefaultTone, setEditDefaultTone] = useState("")
+  const [editSourceExcerpts, setEditSourceExcerpts] = useState("")
+  const [editCharacterQuotes, setEditCharacterQuotes] = useState("")
+  const [editExampleDialogues, setEditExampleDialogues] = useState<ExampleDialogue[]>([{ user: "", bot: "" }])
 
   const loadBots = useCallback(async () => {
     setLoading(true)
@@ -274,6 +326,7 @@ export default function MyBotsPage() {
     setEditUniverse(bot.universe ?? "")
     setEditDescription(bot.description)
     setEditPersonality(parsedProfile.personality)
+    setEditAppearance(bot.appearance ?? parsedProfile.appearance)
     setEditBackstory(parsedProfile.backstory)
     setEditGoals(parsedProfile.goals)
     setEditGender(parsedProfile.gender)
@@ -281,6 +334,14 @@ export default function MyBotsPage() {
     setEditRules(parsedProfile.rules)
     setEditStyle(parsedProfile.style)
     setEditAvatarUrl(bot.avatar_url)
+    setEditDefaultTone(bot.default_tone ?? "")
+    setEditSourceExcerpts(bot.source_excerpts ?? "")
+    setEditCharacterQuotes(bot.character_quotes?.join("\n") ?? "")
+    setEditExampleDialogues(
+      bot.example_dialogues && bot.example_dialogues.length > 0
+        ? bot.example_dialogues
+        : [{ user: "", bot: "" }]
+    )
   }
 
   function cancelEdit() {
@@ -289,6 +350,7 @@ export default function MyBotsPage() {
     setEditUniverse("")
     setEditDescription("")
     setEditPersonality("")
+    setEditAppearance("")
     setEditBackstory("")
     setEditGoals("")
     setEditGender("")
@@ -296,6 +358,10 @@ export default function MyBotsPage() {
     setEditRules("")
     setEditStyle("")
     setEditAvatarUrl(null)
+    setEditDefaultTone("")
+    setEditSourceExcerpts("")
+    setEditCharacterQuotes("")
+    setEditExampleDialogues([{ user: "", bot: "" }])
   }
 
   async function handleEditAvatarUpload(e: ChangeEvent<HTMLInputElement>, botId: string) {
@@ -377,6 +443,7 @@ export default function MyBotsPage() {
           universe: editUniverse.trim(),
           description: editDescription.trim(),
           personality: editPersonality.trim(),
+          appearance: editAppearance.trim() || null,
           backstory: editBackstory.trim(),
           goals: editGoals.trim(),
           gender: editGender.trim(),
@@ -384,6 +451,14 @@ export default function MyBotsPage() {
           rules: editRules.trim(),
           style: editStyle.trim(),
           avatarUrl: editAvatarUrl,
+          defaultTone: editDefaultTone.trim() || null,
+          sourceExcerpts: editSourceExcerpts.trim() || null,
+          characterQuotes: editCharacterQuotes
+            .split("\n")
+            .map((q) => q.trim())
+            .filter(Boolean)
+            .slice(0, 10),
+          exampleDialogues: editExampleDialogues.filter((d) => d.user.trim() && d.bot.trim()),
         }),
       })
 
@@ -622,6 +697,14 @@ export default function MyBotsPage() {
                     />
 
                     <textarea
+                      value={editAppearance}
+                      onChange={(e) => setEditAppearance(e.target.value)}
+                      placeholder="Appearance (physical features, clothing, distinguishing marks...)"
+                      rows={3}
+                      className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                    />
+
+                    <textarea
                       value={editBackstory}
                       onChange={(e) => setEditBackstory(e.target.value)}
                       placeholder="Backstory"
@@ -685,6 +768,107 @@ export default function MyBotsPage() {
                         rows={3}
                         className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Default Tone</label>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        value={editDefaultTone}
+                        onChange={(e) => setEditDefaultTone(e.target.value)}
+                        placeholder="e.g. Romantic, Dark, Playful, Mysterious"
+                        className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="border-t border-gray-700 pt-3">
+                      <h3 className="text-xs font-bold text-purple-300 uppercase tracking-wide mb-1">Source Material</h3>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Iconic Quotes</label>
+                      <textarea
+                        value={editCharacterQuotes}
+                        onChange={(e) => setEditCharacterQuotes(e.target.value)}
+                        placeholder={"One quote per line:\n\"I am inevitable.\""}
+                        rows={4}
+                        className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Up to 10 quotes, one per line.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Script / Book Excerpts</label>
+                      <textarea
+                        value={editSourceExcerpts}
+                        onChange={(e) => setEditSourceExcerpts(e.target.value)}
+                        placeholder="Paste representative scenes or dialogue from source material..."
+                        rows={5}
+                        maxLength={6000}
+                        className="w-full p-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">{editSourceExcerpts.length}/6000 characters.</p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-semibold text-gray-400">Example Conversations</label>
+                        <button
+                          type="button"
+                          onClick={() => setEditExampleDialogues((prev) => [...prev, { user: "", bot: "" }])}
+                          disabled={editExampleDialogues.length >= 8}
+                          className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          + Add example
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {editExampleDialogues.map((pair, idx) => (
+                          <div key={idx} className="bg-gray-900 border border-gray-700 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400 font-semibold">Example {idx + 1}</span>
+                              {editExampleDialogues.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditExampleDialogues((prev) => prev.filter((_, i) => i !== idx))}
+                                  className="text-xs text-red-400 hover:text-red-300"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">User says:</label>
+                              <input
+                                type="text"
+                                value={pair.user}
+                                onChange={(e) =>
+                                  setEditExampleDialogues((prev) =>
+                                    prev.map((p, i) => (i === idx ? { ...p, user: e.target.value } : p))
+                                  )
+                                }
+                                placeholder="What the user might say..."
+                                className="w-full p-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">{editName.trim() || bot.name} responds:</label>
+                              <textarea
+                                value={pair.bot}
+                                onChange={(e) =>
+                                  setEditExampleDialogues((prev) =>
+                                    prev.map((p, i) => (i === idx ? { ...p, bot: e.target.value } : p))
+                                  )
+                                }
+                                placeholder="How the character would actually respond..."
+                                rows={2}
+                                className="w-full p-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 justify-end">

@@ -110,10 +110,10 @@ export async function GET(
     let music: { playlistUrl: string | null; tracks: unknown[] } | null = null
     if (isOwner || priv.show_music) {
       const [settingsResult, tracksResult] = await Promise.all([
-        service.from('user_music_settings').select('playlist_url').eq('user_id', targetUser.id).maybeSingle(),
-        service.from('user_music_tracks').select('id, title, url, order').eq('user_id', targetUser.id).order('order', { ascending: true }),
+        service.from('user_music_settings').select('youtube_playlist_url').eq('user_id', targetUser.id).maybeSingle(),
+        service.from('user_music_tracks').select('id, title, url, track_order').eq('user_id', targetUser.id).order('track_order', { ascending: true }),
       ])
-      music = { playlistUrl: settingsResult.data?.playlist_url ?? null, tracks: tracksResult.data ?? [] }
+      music = { playlistUrl: settingsResult.data?.youtube_playlist_url ?? null, tracks: tracksResult.data ?? [] }
     }
 
     return NextResponse.json({

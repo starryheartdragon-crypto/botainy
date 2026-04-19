@@ -9,6 +9,7 @@ import type { Area } from "react-easy-crop"
 const Cropper = dynamic(() => import("react-easy-crop"), { ssr: false })
 import { UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
+import AiFieldAssist from "@/components/AiFieldAssist"
 
 export default function CreateBotPage() {
   const router = useRouter()
@@ -783,6 +784,31 @@ export default function CreateBotPage() {
     }
   }
 
+  // Shared form data objects passed to the AI assistant for context
+  const botFormData: Record<string, string> = {
+    name: botName,
+    universe: botUniverse,
+    gender: botGender,
+    age: botAge,
+    description: botDescription,
+    personality: botPersonality,
+    appearance: botAppearance,
+    backstory: botBackstory,
+    goals: botGoals,
+    rules: botRules,
+    style: botStyle,
+    defaultTone: botDefaultTone,
+  }
+
+  const personaFormData: Record<string, string> = {
+    name: personaName,
+    gender: personaGender === "custom" ? personaCustomGender : personaGender,
+    personaDescription: personaDescription,
+    personaAppearance: personaAppearance,
+    personaBackstory: personaBackstory,
+    personaGoals: personaGoals,
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-gray-100">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
@@ -971,9 +997,12 @@ export default function CreateBotPage() {
               {(botUniverse !== "TTRPG" || botTtrpgRole === "NPC") && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">
-                      Description <span className="text-red-400">*</span>
-                    </label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">
+                        Description <span className="text-red-400">*</span>
+                      </label>
+                      <AiFieldAssist fieldLabel="Description" fieldKey="description" formType="bot" formData={botFormData} currentValue={botDescription} onApply={setBotDescription} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botDescription}
                       onChange={(e) => setBotDescription(e.target.value)}
@@ -986,9 +1015,12 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">
-                      Core Personality <span className="text-red-400">*</span>
-                    </label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">
+                        Core Personality <span className="text-red-400">*</span>
+                      </label>
+                      <AiFieldAssist fieldLabel="Core Personality" fieldKey="personality" formType="bot" formData={botFormData} currentValue={botPersonality} onApply={setBotPersonality} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botPersonality}
                       onChange={(e) => setBotPersonality(e.target.value)}
@@ -1000,7 +1032,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Appearance</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Appearance</label>
+                      <AiFieldAssist fieldLabel="Appearance" fieldKey="appearance" formType="bot" formData={botFormData} currentValue={botAppearance} onApply={setBotAppearance} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botAppearance}
                       onChange={(e) => setBotAppearance(e.target.value)}
@@ -1012,7 +1047,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Backstory</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Backstory</label>
+                      <AiFieldAssist fieldLabel="Backstory" fieldKey="backstory" formType="bot" formData={botFormData} currentValue={botBackstory} onApply={setBotBackstory} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botBackstory}
                       onChange={(e) => setBotBackstory(e.target.value)}
@@ -1023,7 +1061,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Goals / Motivations</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Goals / Motivations</label>
+                      <AiFieldAssist fieldLabel="Goals / Motivations" fieldKey="goals" formType="bot" formData={botFormData} currentValue={botGoals} onApply={setBotGoals} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botGoals}
                       onChange={(e) => setBotGoals(e.target.value)}
@@ -1068,7 +1109,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Rules / Boundaries</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Rules / Boundaries</label>
+                      <AiFieldAssist fieldLabel="Rules / Boundaries" fieldKey="rules" formType="bot" formData={botFormData} currentValue={botRules} onApply={setBotRules} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botRules}
                       onChange={(e) => setBotRules(e.target.value)}
@@ -1079,7 +1123,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Speaking Style</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Speaking Style</label>
+                      <AiFieldAssist fieldLabel="Speaking Style" fieldKey="style" formType="bot" formData={botFormData} currentValue={botStyle} onApply={setBotStyle} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botStyle}
                       onChange={(e) => setBotStyle(e.target.value)}
@@ -1090,7 +1137,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1">Default Tone</label>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-sm font-semibold text-gray-300">Default Tone</label>
+                      <AiFieldAssist fieldLabel="Default Tone" fieldKey="defaultTone" formType="bot" formData={botFormData} currentValue={botDefaultTone} onApply={setBotDefaultTone} getToken={getAccessToken} />
+                    </div>
                     <p className="text-xs text-gray-500 mb-2">The emotional register this character defaults to in chats. Users can override this per-chat in their settings.</p>
                     <input
                       type="text"
@@ -1108,7 +1158,10 @@ export default function CreateBotPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-1.5">Iconic Quotes</label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-semibold text-gray-300">Iconic Quotes</label>
+                      <AiFieldAssist fieldLabel="Iconic Quotes" fieldKey="characterQuotes" formType="bot" formData={botFormData} currentValue={botCharacterQuotes} onApply={setBotCharacterQuotes} getToken={getAccessToken} />
+                    </div>
                     <textarea
                       value={botCharacterQuotes}
                       onChange={(e) => setBotCharacterQuotes(e.target.value)}
@@ -1894,9 +1947,12 @@ export default function CreateBotPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-1.5">
-                  Persona Overview <span className="text-red-400">*</span>
-                </label>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <label className="text-sm font-semibold text-gray-300">
+                    Persona Overview <span className="text-red-400">*</span>
+                  </label>
+                  <AiFieldAssist fieldLabel="Persona Overview" fieldKey="personaDescription" formType="persona" formData={personaFormData} currentValue={personaDescription} onApply={setPersonaDescription} getToken={getAccessToken} />
+                </div>
                 <textarea
                   value={personaDescription}
                   onChange={(e) => setPersonaDescription(e.target.value)}
@@ -1908,7 +1964,10 @@ export default function CreateBotPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-1.5">Appearance</label>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <label className="text-sm font-semibold text-gray-300">Appearance</label>
+                  <AiFieldAssist fieldLabel="Appearance" fieldKey="personaAppearance" formType="persona" formData={personaFormData} currentValue={personaAppearance} onApply={setPersonaAppearance} getToken={getAccessToken} />
+                </div>
                 <textarea
                   value={personaAppearance}
                   onChange={(e) => setPersonaAppearance(e.target.value)}
@@ -1920,7 +1979,10 @@ export default function CreateBotPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-1.5">Backstory</label>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <label className="text-sm font-semibold text-gray-300">Backstory</label>
+                    <AiFieldAssist fieldLabel="Backstory" fieldKey="personaBackstory" formType="persona" formData={personaFormData} currentValue={personaBackstory} onApply={setPersonaBackstory} getToken={getAccessToken} />
+                  </div>
                   <textarea
                     value={personaBackstory}
                     onChange={(e) => setPersonaBackstory(e.target.value)}
@@ -1930,7 +1992,10 @@ export default function CreateBotPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-1.5">Goals / Motives</label>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <label className="text-sm font-semibold text-gray-300">Goals / Motives</label>
+                    <AiFieldAssist fieldLabel="Goals / Motives" fieldKey="personaGoals" formType="persona" formData={personaFormData} currentValue={personaGoals} onApply={setPersonaGoals} getToken={getAccessToken} />
+                  </div>
                   <textarea
                     value={personaGoals}
                     onChange={(e) => setPersonaGoals(e.target.value)}

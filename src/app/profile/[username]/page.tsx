@@ -40,7 +40,7 @@ type PublicProfile = {
   likes_count: number
   connections_count: number | null
   bots: Bot[]
-  music: { playlistUrl: string | null; tracks: Array<{ id: string; title: string; url: string; order: number }> } | null
+  music: { playlistUrl: string | null; tracks: Array<{ id: string; title: string; url: string; track_order: number }> } | null
   viewer_is_following: boolean
   viewer_has_liked: boolean
   viewer_connection_status: string | null
@@ -479,7 +479,7 @@ function ProfileMusicSection({
   playlistId,
   profileUsername,
 }: {
-  music: { playlistUrl: string | null; tracks: Array<{ id: string; title: string; url: string; order: number }> }
+  music: { playlistUrl: string | null; tracks: Array<{ id: string; title: string; url: string; track_order: number }> }
   playlistId: string | null
   profileUsername: string
 }) {

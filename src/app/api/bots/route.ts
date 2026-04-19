@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       const serviceClient = () => createClient(supabaseUrl, serviceRoleKey)
       let mineQuery = serviceClient()
       .from('bots')
-        .select('id,name,universe,description,personality,avatar_url,is_published,created_at')
+        .select('id,name,universe,description,personality,avatar_url,is_published,created_at,appearance,source_excerpts,character_quotes,default_tone,example_dialogues')
         .eq('creator_id', user.id)
         .order('created_at', { ascending: false })
 
