@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Leaderboard from "@/components/Leaderboard"
 
 type DashboardStats = {
   botsCreated: number
@@ -143,6 +144,10 @@ export default function DashboardPage() {
               <span className="text-purple-400">→</span> Start chatting with bots
             </li>
           </ul>
+        </div>
+
+        <div className="mt-8">
+          <Leaderboard />
         </div>
       </div>
     </div>

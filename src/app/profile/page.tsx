@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import { supabase } from "@/lib/supabase"
 import { HARD_BOUNDARY_OPTIONS } from "@/lib/roleplayFormatting"
+import BadgePinEditor from "@/components/BadgePinEditor"
 
 type ProfilePersona = {
   id: string
@@ -1274,6 +1275,17 @@ export default function ProfilePage() {
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Pinned Badges */}
+        <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Pinned Badges</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Choose up to 3 received badges to display at the top of your profile card.
+            </p>
+          </div>
+          <BadgePinEditor />
         </div>
 
         {/* Section Order */}

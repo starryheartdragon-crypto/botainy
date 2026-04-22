@@ -31,6 +31,10 @@
 	"observability": {
 		"enabled": true
 	},
+	"triggers": {
+		// Recalculate leaderboard snapshots every 24 hours at 03:00 UTC
+		"crons": ["0 3 * * *"]
+	},
 	"vars": {
 		"NEXT_PUBLIC_SUPABASE_URL": "https://jrbclxlhqgdldqlpnppy.supabase.co",
 		"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_L71uthIoOvYUe7rYZpb7Rw_oA5axNGO"
