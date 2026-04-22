@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'This badge has already been gifted' }, { status: 409 })
   }
 
-  const badge = inv.badge as { id: string; reputation_points: number; is_active: boolean } | null
+  const badge = (inv.badge as unknown) as { id: string; reputation_points: number; is_active: boolean } | null
   if (!badge?.is_active) {
     return NextResponse.json({ error: 'This badge is no longer active' }, { status: 400 })
   }

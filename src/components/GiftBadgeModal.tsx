@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
+import { supabase } from "@/lib/supabase";
 import { BadgeInventoryItem, Badge } from "@/types";
 import BadgeCard from "./BadgeCard";
 
@@ -18,7 +19,7 @@ export default function GiftBadgeModal({
   onClose,
   onSuccess,
 }: GiftBadgeModalProps) {
-  const { session } = useAuthStore();
+  const { user } = useAuthStore();
   const [inventory, setInventory] = useState<BadgeInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<BadgeInventoryItem | null>(null);
@@ -29,6 +30,7 @@ export default function GiftBadgeModal({
   useEffect(() => {
     async function fetchInventory() {
       setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/badges/inventory", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -38,19 +40,20 @@ export default function GiftBadgeModal({
       }
       setLoading(false);
     }
-    if (session) fetchInventory();
-  }, [session]);
+    if (user) fetchInventory();
+  }, [user]);
 
   async function handleGift() {
-    if (!selected || !session) return;
+    if (!selected || !user) return;
     setSending(true);
     setError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/badges/gift", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           inventoryId: selected.id,

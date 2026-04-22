@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store/authStore";
+import { supabase } from "@/lib/supabase";
 import { ReceivedBadge, PinnedBadge } from "@/types";
 import BadgeCard from "./BadgeCard";
 
@@ -10,7 +11,7 @@ interface BadgePinEditorProps {
 }
 
 export default function BadgePinEditor({ onSave }: BadgePinEditorProps) {
-  const { session } = useAuthStore();
+  const { user } = useAuthStore();
   const [received, setReceived] = useState<ReceivedBadge[]>([]);
   const [pins, setPins] = useState<PinnedBadge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,18 +20,19 @@ export default function BadgePinEditor({ onSave }: BadgePinEditorProps) {
   const [success, setSuccess] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!session) return;
+    if (!user) return;
     setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
     const [recRes, pinRes] = await Promise.all([
       fetch("/api/badges/received", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       }),
-      fetch(`/api/badges/pinned?userId=${session.user.id}`),
+      fetch(`/api/badges/pinned?userId=${user.id}`),
     ]);
     if (recRes.ok) setReceived(await recRes.json());
     if (pinRes.ok) setPins(await pinRes.json());
     setLoading(false);
-  }, [session]);
+  }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -62,9 +64,10 @@ export default function BadgePinEditor({ onSave }: BadgePinEditorProps) {
   }
 
   async function handleSave() {
-    if (!session) return;
+    if (!user) return;
     setSaving(true);
     setError(null);
+    const { data: { session } } = await supabase.auth.getSession();
     const pinsPayload = draft
       .map((id, i) => (id ? { receivedId: id, position: (i + 1) as 1 | 2 | 3 } : null))
       .filter(Boolean);
@@ -73,7 +76,7 @@ export default function BadgePinEditor({ onSave }: BadgePinEditorProps) {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({ pins: pinsPayload }),
     });

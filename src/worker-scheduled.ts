@@ -14,6 +14,11 @@
  * wrapping the opennext handler. This file documents the intended logic;
  * see SETUP.md for wiring instructions.
  */
+
+// Minimal Cloudflare Workers type stubs (avoids requiring @cloudflare/workers-types in the Next.js build)
+type ScheduledEvent = { cron: string; scheduledTime: number; type: string }
+type ExecutionContext = { waitUntil(promise: Promise<unknown>): void; passThroughOnException(): void }
+
 export default {
   // The `scheduled` export is invoked by Cloudflare Cron Triggers
   async scheduled(
