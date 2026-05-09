@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { QuickStartModal } from "@/components/QuickStartModal"
 
 type MenuUser = {
   id: string
@@ -20,6 +21,7 @@ type MenuItem = {
 
 export default function DropdownMenu() {
   const [open, setOpen] = useState(false)
+  const [quickStartOpen, setQuickStartOpen] = useState(false)
   const [user, setUser] = useState<MenuUser | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
@@ -290,9 +292,20 @@ export default function DropdownMenu() {
                 </Link>
               )
             ))}
+            {user && (
+              <button
+                onClick={() => { setOpen(false); setQuickStartOpen(true) }}
+                className="text-left px-4 py-2.5 text-xs sm:text-sm text-purple-300 hover:text-white hover:bg-purple-900 hover:bg-opacity-40 flex items-center gap-3 focus:outline-none focus:bg-purple-900 focus:bg-opacity-40 transition border-t border-gray-800 mt-1"
+              >
+                <span className="font-medium">⚡ Quick Start</span>
+              </button>
+            )}
           </nav>
         </div>
       )}
     </div>
+    {user && (
+      <QuickStartModal open={quickStartOpen} onClose={() => setQuickStartOpen(false)} />
+    )}
   )
 }
