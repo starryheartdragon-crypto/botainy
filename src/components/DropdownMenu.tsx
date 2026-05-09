@@ -238,6 +238,7 @@ export default function DropdownMenu() {
   ]
 
   return (
+    <>
     <div className="fixed top-4 sm:top-6 left-4 sm:left-6 z-[9999]" ref={ref} onKeyDown={onKeyDown}>
       <button
         aria-haspopup="true"
@@ -307,5 +308,6 @@ export default function DropdownMenu() {
     {user && (
       <QuickStartModal open={quickStartOpen} onClose={() => setQuickStartOpen(false)} />
     )}
+    </>
   )
 }
