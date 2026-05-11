@@ -12,7 +12,7 @@ import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { PersonaSelector } from './PersonaSelector'
 import { SoundtrackDrawer } from './SoundtrackDrawer'
-import { RelationshipData } from './RelationshipContextPanel'
+import { RelationshipData, RelationshipTrackConfig, TrackScore, AchievedMilestone } from './RelationshipContextPanel'
 import { TONE_PRESETS } from '@/lib/roleplayFormatting'
 
 type MessagePayload = ChatMessage & {
@@ -40,7 +40,12 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     relationship_tags: [],
     relationship_events: [],
     relationship_summary: null,
+    track_scores: [],
+    milestones_achieved: [],
   })
+  const [botRelationshipTracks, setBotRelationshipTracks] = useState<RelationshipTrackConfig[]>([])
+  const [botRepliesCounter, setBotRepliesCounter] = useState(0)
+  const [batchEvery, setBatchEvery] = useState(5)
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [summaryText, setSummaryText] = useState('')
@@ -79,8 +84,18 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token ?? null)
     })
+    // Fetch bot relationship config
+    fetch(`/api/bots/${bot.id}/relationship-config`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((cfg) => {
+        if (cfg?.tracks) {
+          setBotRelationshipTracks(cfg.tracks as RelationshipTrackConfig[])
+          setBatchEvery(typeof cfg.batch_every === 'number' ? cfg.batch_every : 5)
+        }
+      })
+      .catch(() => {})
     fetchChat()
-  }, [chatId])
+  }, [chatId, bot.id])
 
   // Load relationship data whenever the selected persona changes
   useEffect(() => {
@@ -91,6 +106,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
         relationship_tags: [],
         relationship_events: [],
         relationship_summary: null,
+        track_scores: [],
+        milestones_achieved: [],
       })
       return
     }
@@ -110,6 +127,8 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
             relationship_tags: Array.isArray(data.relationship_tags) ? data.relationship_tags : [],
             relationship_events: Array.isArray(data.relationship_events) ? data.relationship_events : [],
             relationship_summary: data.relationship_summary ?? null,
+            track_scores: Array.isArray(data.track_scores) ? (data.track_scores as TrackScore[]) : [],
+            milestones_achieved: Array.isArray(data.milestones_achieved) ? (data.milestones_achieved as AchievedMilestone[]) : [],
           })
         }
       } catch {}
@@ -545,6 +564,33 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
       }
       if (data.botMessage) {
         newMessages.push(data.botMessage);
+        // Batch relationship analysis trigger
+        if (selectedPersonaId) {
+          setBotRepliesCounter((prev) => {
+            const next = prev + 1
+            if (next >= batchEvery) {
+              void (async () => {
+                try {
+                  const headers = await getAuthHeaders(true)
+                  const r = await fetch(
+                    `/api/chats/${chatId}/relationship/analyze?personaId=${encodeURIComponent(selectedPersonaId)}`,
+                    { method: 'POST', headers }
+                  )
+                  if (r.ok) {
+                    const analysis = await r.json()
+                    setRelationshipData((prev) => ({
+                      ...prev,
+                      track_scores: Array.isArray(analysis.track_scores) ? analysis.track_scores : prev.track_scores,
+                      milestones_achieved: Array.isArray(analysis.milestones_achieved) ? analysis.milestones_achieved : prev.milestones_achieved,
+                    }))
+                  }
+                } catch {}
+              })()
+              return 0
+            }
+            return next
+          })
+        }
       }
       if (newMessages.length) {
         upsertMessages(newMessages);
@@ -795,6 +841,7 @@ export function ChatWindow({ chatId, bot, userId, initialSelectedPersonaId = nul
                   onRelationshipChange={(partial) => setRelationshipData((prev) => ({ ...prev, ...partial }))}
                   onRelationshipSave={handleRelationshipSave}
                   token={authToken}
+                  tracks={botRelationshipTracks}
                 />
               )}
             </div>

@@ -491,6 +491,48 @@ function buildGroupSourceMaterialBlock(bot: GroupBot): string[] {
   return parts
 }
 
+type TrackScoreEntry = { score: number }
+type RelationshipStageEntry = { min: number; max: number; label: string }
+type RelationshipTrackEntry = { name: string; stages: RelationshipStageEntry[] }
+
+function buildMultiTrackRelationshipLine(
+  trackScores: TrackScoreEntry[],
+  tracks: RelationshipTrackEntry[],
+  memberRelationshipScore: number,
+  memberRelationshipContext: string | null
+): string {
+  if (tracks.length === 0 || trackScores.length === 0) {
+    // Fallback to legacy single-score label
+    const scoreLabel = memberRelationshipScore <= -76 ? 'Archrivals'
+      : memberRelationshipScore <= -51 ? 'Bitter Enemies'
+      : memberRelationshipScore <= -26 ? 'Rivals'
+      : memberRelationshipScore <= -11 ? 'Cold Strangers'
+      : memberRelationshipScore <= 10 ? 'Neutral'
+      : memberRelationshipScore <= 25 ? 'Acquaintances'
+      : memberRelationshipScore <= 50 ? 'Friends'
+      : memberRelationshipScore <= 75 ? 'Close Friends'
+      : memberRelationshipScore <= 90 ? 'Deeply Bonded'
+      : memberRelationshipScore <= 99 ? 'Devoted' : 'Lovers'
+    const parts = [`Relationship with the user: ${scoreLabel} (score: ${memberRelationshipScore})`]
+    if (memberRelationshipContext) parts.push(`Backstory/context: ${memberRelationshipContext}`)
+    return parts.join('. ')
+  }
+
+  const trackLines = tracks.map((track, i) => {
+    const score = trackScores[i]?.score ?? 0
+    const stage = track.stages.find((s) => score >= s.min && score <= s.max)?.label ?? 'Neutral'
+    return `  • ${track.name}: ${stage} (${score > 0 ? '+' : ''}${score})`
+  })
+
+  const parts = [
+    `### **RELATIONSHIP WITH THE USER'S PERSONA**\n${trackLines.join('\n')}`,
+  ]
+  if (memberRelationshipContext) {
+    parts.push(`Shared history / context: ${memberRelationshipContext}`)
+  }
+  return parts.join('\n')
+}
+
 async function generateBotReply({
   group,
   bot,
@@ -502,6 +544,8 @@ async function generateBotReply({
   encounterCtx,
   memberRelationshipScore = 0,
   memberRelationshipContext = null,
+  botTrackScores = [],
+  botRelationshipTracks = [],
 }: {
   group: GroupChatContext
   bot: GroupBot
@@ -513,6 +557,8 @@ async function generateBotReply({
   encounterCtx?: EncounterContext
   memberRelationshipScore?: number
   memberRelationshipContext?: string | null
+  botTrackScores?: TrackScoreEntry[]
+  botRelationshipTracks?: RelationshipTrackEntry[]
   // is_nsfw is read from group.is_nsfw
 }) {
   const openrouterApiKey = resolveOpenRouterApiKey()
@@ -529,21 +575,12 @@ async function generateBotReply({
     ? `### **USER'S PERSONA**\nThe user is roleplaying as **${userPersona.name}**.${userPersona.description ? `\n${userPersona.description}` : ''}`
     : 'The user is chatting as themselves.'
 
-  const relationshipLine = (() => {
-    const scoreLabel = memberRelationshipScore <= -76 ? 'Archrivals'
-      : memberRelationshipScore <= -51 ? 'Bitter Enemies'
-      : memberRelationshipScore <= -26 ? 'Rivals'
-      : memberRelationshipScore <= -11 ? 'Cold Strangers'
-      : memberRelationshipScore <= 10 ? 'Neutral'
-      : memberRelationshipScore <= 25 ? 'Acquaintances'
-      : memberRelationshipScore <= 50 ? 'Friends'
-      : memberRelationshipScore <= 75 ? 'Close Friends'
-      : memberRelationshipScore <= 90 ? 'Deeply Bonded'
-      : memberRelationshipScore <= 99 ? 'Devoted' : 'Lovers'
-    const parts = [`Relationship with the user: ${scoreLabel} (score: ${memberRelationshipScore})`]
-    if (memberRelationshipContext) parts.push(`Backstory/context: ${memberRelationshipContext}`)
-    return parts.join('. ')
-  })()
+  const relationshipLine = buildMultiTrackRelationshipLine(
+    botTrackScores,
+    botRelationshipTracks,
+    memberRelationshipScore,
+    memberRelationshipContext
+  )
 
   const isRoleplayMode = group.group_type === 'roleplay' || group.group_type === 'ttrpg'
 
@@ -921,6 +958,44 @@ export async function POST(
     const userHardBoundaries = (userProfileRow.data as { hard_boundaries?: string[] } | null)?.hard_boundaries ?? []
     const memberRelationshipScore: number = (memberRow.data as { relationship_score?: number } | null)?.relationship_score ?? 0
     const memberRelationshipContext: string | null = (memberRow.data as { relationship_context?: string | null } | null)?.relationship_context ?? null
+
+    // Resolve persona_id (stored on the member row by getActiveUserPersona)
+    const { data: memberPersonaRow } = await svc
+      .from('group_chat_members')
+      .select('persona_id')
+      .eq('group_chat_id', groupChatId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const activeMemberPersonaId: string | null =
+      (memberPersonaRow as { persona_id?: string | null } | null)?.persona_id ?? null
+
+    // Pre-fetch multi-track relationship rows for all bots (if we have a persona)
+    type GroupRelRow = { bot_id: string; track_scores: TrackScoreEntry[]; milestones_achieved: unknown[] }
+    const groupRelMap = new Map<string, TrackScoreEntry[]>()
+    if (activeMemberPersonaId && groupBots.length > 0) {
+      const { data: relRows } = await svc
+        .from('group_chat_persona_relationships')
+        .select('bot_id, track_scores, milestones_achieved')
+        .eq('group_chat_id', groupChatId)
+        .eq('persona_id', activeMemberPersonaId)
+        .in('bot_id', groupBots.map((b) => b.id))
+      ;((relRows ?? []) as GroupRelRow[]).forEach((row) => {
+        groupRelMap.set(row.bot_id, Array.isArray(row.track_scores) ? row.track_scores : [])
+      })
+    }
+
+    // Pre-fetch bot relationship configs for all bots
+    type BotRelConfigRow = { bot_id: string; tracks: RelationshipTrackEntry[] }
+    const botRelConfigMap = new Map<string, RelationshipTrackEntry[]>()
+    if (groupBots.length > 0) {
+      const { data: configRows } = await svc
+        .from('bot_relationship_config')
+        .select('bot_id, tracks')
+        .in('bot_id', groupBots.map((b) => b.id))
+      ;((configRows ?? []) as BotRelConfigRow[]).forEach((row) => {
+        if (Array.isArray(row.tracks)) botRelConfigMap.set(row.bot_id, row.tracks as RelationshipTrackEntry[])
+      })
+    }
     const { data, error } = await svc
       .from('group_chat_messages')
       .insert({
@@ -1020,6 +1095,8 @@ export async function POST(
             encounterCtx,
             memberRelationshipScore,
             memberRelationshipContext,
+            botTrackScores: groupRelMap.get(respondingBot.id) ?? [],
+            botRelationshipTracks: botRelConfigMap.get(respondingBot.id) ?? [],
           })
 
           if (botReply.warning) {
@@ -1111,6 +1188,25 @@ export async function POST(
 
           botMessages.push(decorated)
           respondedBotIds.add(respondingBot.id)
+
+          // Increment messages_since_analysis for this persona↔bot relationship (fire-and-forget)
+          if (activeMemberPersonaId) {
+            void Promise.resolve(
+              svc
+                .from('group_chat_persona_relationships')
+                .upsert(
+                  {
+                    group_chat_id: groupChatId,
+                    persona_id: activeMemberPersonaId,
+                    bot_id: respondingBot.id,
+                    messages_since_analysis: (groupRelMap.get(respondingBot.id)?.length ?? 0) + 1,
+                    updated_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'group_chat_id,persona_id,bot_id', ignoreDuplicates: false }
+                )
+            ).catch(() => {})
+          }
+
           triggerMessage = botMessageRow
           generationMessages.push({
             sender_id: String(botMessageRow.sender_id || ''),

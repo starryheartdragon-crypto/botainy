@@ -62,7 +62,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI completion failed' }, { status: 500 });
     }
 
-    return NextResponse.json({ suggestion: aiResponse });
+    // Guarantee the response includes the user's original draft.
+    // If the model only returned the continuation, prepend the draft.
+    let suggestion = aiResponse.trim();
+    if (!suggestion.toLowerCase().startsWith(userDraft.trim().toLowerCase())) {
+      suggestion = userDraft.trimEnd() + ' ' + suggestion;
+    }
+
+    return NextResponse.json({ suggestion });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to generate AI suggestion';
     return NextResponse.json({ error: message }, { status: 500 });

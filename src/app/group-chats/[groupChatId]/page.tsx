@@ -37,6 +37,14 @@ interface BestiaryEntry {
   active: boolean
 }
 
+type BotRelEntry = {
+  bot_id: string
+  bot_name: string
+  bot_avatar_url: string | null
+  track_scores: Array<{ score: number }>
+  milestones_achieved: Array<{ milestone_id: string; name: string; achieved_at: string; track_index: number; score: number }>
+}
+
 export default function GroupChatDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -88,6 +96,11 @@ export default function GroupChatDetailPage() {
     (group.dm_mode === 'user' && group.dm_user_id === userId)
   ))
   const [savingNsfw, setSavingNsfw] = useState(false)
+
+  // Multi-track relationship state (per bot)
+  const [groupBotRelationships, setGroupBotRelationships] = useState<BotRelEntry[]>([])
+  const [botRepliesCounter, setBotRepliesCounter] = useState(0)
+  const BATCH_EVERY = 5 // analyze every 5 bot replies
 
   // Soundtrack drawer state
   type Track = { title: string; youtubeId: string; reasoning: string; addedBy: 'AI' | 'User' }
@@ -392,6 +405,17 @@ export default function GroupChatDetailPage() {
         setRelationshipContextInput(ctx ?? '')
         setMembershipLoaded(true)
         setMembershipHasProfile(Boolean(memberData.persona_id) || Boolean(ctx))
+
+        // Fetch per-bot relationship scores for this persona
+        if (memberData.persona_id) {
+          void fetch(
+            `/api/group-chats/${groupChatId}/relationship?personaId=${encodeURIComponent(memberData.persona_id)}`,
+            { headers: { Authorization: `Bearer ${session.access_token}` } }
+          )
+            .then((r) => r.ok ? r.json() : null)
+            .then((d) => { if (d?.relationships) setGroupBotRelationships(d.relationships as BotRelEntry[]) })
+            .catch(() => {})
+        }
       }
 
       const groupResp = await fetch('/api/group-chats', {
@@ -514,6 +538,42 @@ export default function GroupChatDetailPage() {
                 : []
 
             upsertMessages([typed.userMessage, ...returnedBotMessages])
+
+            // Track bot replies for batch relationship analysis
+            if (returnedBotMessages.length > 0 && selectedPersonaId) {
+              setBotRepliesCounter((prev) => {
+                const next = prev + returnedBotMessages.length
+                if (next >= BATCH_EVERY) {
+                  void (async () => {
+                    try {
+                      const { data: { session: s } } = await supabase.auth.getSession()
+                      if (!s?.access_token) return
+                      const r = await fetch(
+                        `/api/group-chats/${groupChatId}/relationship/analyze?personaId=${encodeURIComponent(selectedPersonaId)}`,
+                        { method: 'POST', headers: { Authorization: `Bearer ${s.access_token}` } }
+                      )
+                      if (r.ok) {
+                        const analysis = await r.json()
+                        if (Array.isArray(analysis.results)) {
+                          setGroupBotRelationships((prevRel) => {
+                            const updated = [...prevRel]
+                            for (const result of analysis.results as BotRelEntry[]) {
+                              const idx = updated.findIndex((b) => b.bot_id === result.bot_id)
+                              if (idx >= 0) {
+                                updated[idx] = { ...updated[idx], track_scores: result.track_scores, milestones_achieved: result.milestones_achieved }
+                              }
+                            }
+                            return updated
+                          })
+                        }
+                      }
+                    } catch {}
+                  })()
+                  return 0
+                }
+                return next
+              })
+            }
           } else {
             upsertMessages([data as GroupMessage])
           }
@@ -666,6 +726,61 @@ export default function GroupChatDetailPage() {
                   <p className="text-[10px] text-gray-500 mt-1">Score: {savedRelationshipScore}</p>
                 </div>
               )}
+
+              {/* Per-bot relationship track scores */}
+              {groupBotRelationships.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                    AI Relationship Scores
+                  </p>
+                  {groupBotRelationships.map((rel) => (
+                    <div key={rel.bot_id} className="p-3 bg-gray-800/70 rounded-xl border border-gray-700/60">
+                      <div className="flex items-center gap-2 mb-2">
+                        {rel.bot_avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={rel.bot_avatar_url} alt={rel.bot_name} className="w-6 h-6 rounded-full object-cover border border-gray-600" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300 font-bold border border-gray-600">
+                            {rel.bot_name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs font-semibold text-gray-200">{rel.bot_name}</span>
+                      </div>
+                      {rel.track_scores.length === 0 ? (
+                        <p className="text-[10px] text-gray-600 italic">No interactions yet.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {rel.track_scores.map((ts, i) => {
+                            const score = ts.score
+                            const pct = ((score + 100) / 200) * 100
+                            const color = score < -50 ? '#ef4444' : score < 0 ? '#f97316' : score < 26 ? '#9ca3af' : score < 51 ? '#60a5fa' : score < 76 ? '#a78bfa' : '#ec4899'
+                            return (
+                              <div key={i}>
+                                <div className="flex justify-between items-center mb-0.5">
+                                  <span className="text-[10px] text-gray-500">Track {i + 1}</span>
+                                  <span className="text-[10px] font-bold" style={{ color }}>{score > 0 ? '+' : ''}{score}</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {rel.milestones_achieved.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-700/50">
+                          <p className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Milestones</p>
+                          {rel.milestones_achieved.slice(-3).map((m) => (
+                            <p key={m.milestone_id} className="text-[10px] text-purple-300 italic">✦ {m.name}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
             </div>
           </div>
         </div>

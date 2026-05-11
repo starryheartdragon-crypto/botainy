@@ -3,7 +3,7 @@
 import { Persona } from '@/types'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { RelationshipContextPanel, RelationshipData } from './RelationshipContextPanel'
+import { RelationshipContextPanel, RelationshipData, RelationshipTrackConfig } from './RelationshipContextPanel'
 
 interface PersonaSelectorProps {
   onSelectPersona: (personaId: string | null) => void
@@ -15,6 +15,7 @@ interface PersonaSelectorProps {
   onRelationshipChange?: (data: Partial<RelationshipData>) => void
   onRelationshipSave?: (data: Partial<RelationshipData>) => void
   token?: string | null
+  tracks?: RelationshipTrackConfig[]
   // Legacy props kept for compatibility – no longer rendered
   relationshipContext?: string | null
   onRelationshipUpdate?: (value: string) => void
@@ -30,6 +31,7 @@ export function PersonaSelector({
   onRelationshipChange,
   onRelationshipSave,
   token,
+  tracks,
 }: PersonaSelectorProps) {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,6 +104,7 @@ export function PersonaSelector({
           onChange={(partial) => onRelationshipChange?.(partial)}
           onSave={(partial) => onRelationshipSave?.(partial)}
           token={token ?? null}
+          tracks={tracks ?? []}
         />
       )}
 

@@ -286,25 +286,44 @@ export async function POST(
       ? `### **USER'S PERSONA**\nThe user is roleplaying as **${personaContext.name}**.${personaContext.description ? `\n${personaContext.description}` : ''}`
       : 'The user is chatting as themselves.'
 
-    // Look up relationship data from the per-persona relationship table
+    // Look up relationship data + bot relationship config for richer injection
     let relationshipBlock: string | null = null
     if (personaContext && personaId) {
-      const { data: rel } = await serviceClient
-        .from('chat_persona_relationships')
-        .select('relationship_context, relationship_score, relationship_tags, relationship_events, relationship_summary')
-        .eq('chat_id', chatId)
-        .eq('persona_id', personaId)
-        .maybeSingle()
+      const [relResult, configResult] = await Promise.all([
+        serviceClient
+          .from('chat_persona_relationships')
+          .select('relationship_context, relationship_score, relationship_tags, relationship_events, relationship_summary, track_scores, milestones_achieved')
+          .eq('chat_id', chatId)
+          .eq('persona_id', personaId)
+          .maybeSingle(),
+        serviceClient
+          .from('bot_relationship_config')
+          .select('tracks, milestones')
+          .eq('bot_id', chat.bot_id)
+          .maybeSingle(),
+      ])
 
+      const rel = relResult.data
       if (rel) {
         const pName = personaContext.name
-        const score = (rel.relationship_score as number | null) ?? 0
+        const legacyScore = (rel.relationship_score as number | null) ?? 0
         const tags = (rel.relationship_tags as string[] | null) ?? []
         const events = (rel.relationship_events as RelationshipEvent[] | null) ?? []
         const backstory = (rel.relationship_context as string | null)?.trim()
         const summary = (rel.relationship_summary as string | null)?.trim()
+        const trackScores = Array.isArray(rel.track_scores) ? rel.track_scores as Array<{ score: number }> : []
+        const milestonesAchieved = Array.isArray(rel.milestones_achieved)
+          ? rel.milestones_achieved as Array<{ milestone_id: string; achieved_at: string; name: string; track_index: number }>
+          : []
+        const tracks = Array.isArray(configResult.data?.tracks)
+          ? configResult.data!.tracks as Array<{ name: string; stages: Array<{ min: number; max: number; label: string }>; thresholds: Array<{ score: number; above: boolean; instruction: string }> }>
+          : null
 
-        function scoreLabel(s: number): string {
+        function stageForScore(score: number, stages: Array<{ min: number; max: number; label: string }>): string {
+          return stages.find((s) => score >= s.min && score <= s.max)?.label ?? 'Neutral'
+        }
+
+        const defaultStageLabel = (s: number) => {
           if (s <= -76) return 'Archrivals'
           if (s <= -51) return 'Bitter Enemies'
           if (s <= -26) return 'Rivals'
@@ -318,22 +337,59 @@ export async function POST(
           return 'Lovers'
         }
 
-        const hasAnyRelationshipInfo = backstory || summary || tags.length > 0 || events.length > 0 || score !== 0
+        const hasAnyRelationshipInfo =
+          backstory || summary || tags.length > 0 || events.length > 0 || legacyScore !== 0 ||
+          trackScores.some((t) => t.score !== 0) || milestonesAchieved.length > 0
+
         if (hasAnyRelationshipInfo) {
-          const lines: string[] = [
-            `### **YOUR RELATIONSHIP WITH ${pName.toUpperCase()}**`,
-            `Current stage: **${scoreLabel(score)}** (${score > 0 ? '+' : ''}${score}/100)`,
-          ]
+          const lines: string[] = [`### **YOUR RELATIONSHIP WITH ${pName.toUpperCase()}**`]
+
+          // Multi-track scores
+          if (tracks && tracks.length > 0 && trackScores.length > 0) {
+            const trackLines = tracks.map((track, i) => {
+              const score = trackScores[i]?.score ?? 0
+              const stage = stageForScore(score, track.stages)
+              return `${track.name}: **${stage}** (${score > 0 ? '+' : ''}${score})`
+            })
+            lines.push(trackLines.join(' · '))
+
+            // Active threshold instructions
+            const activeThresholds: string[] = []
+            for (let i = 0; i < tracks.length; i++) {
+              const score = trackScores[i]?.score ?? 0
+              for (const threshold of (tracks[i].thresholds ?? [])) {
+                const active = threshold.above ? score >= threshold.score : score <= threshold.score
+                if (active && threshold.instruction?.trim()) {
+                  activeThresholds.push(`[${tracks[i].name} threshold] ${threshold.instruction.trim()}`)
+                }
+              }
+            }
+            if (activeThresholds.length > 0) {
+              lines.push(`\nActive relationship conditions:\n${activeThresholds.join('\n')}`)
+            }
+          } else {
+            // Fallback to legacy single score
+            lines.push(`Current stage: **${defaultStageLabel(legacyScore)}** (${legacyScore > 0 ? '+' : ''}${legacyScore}/100)`)
+          }
+
           if (tags.length > 0) lines.push(`Relationship tags: ${tags.join(', ')}`)
+
           if (summary) {
             lines.push(`\nRelationship dynamic:\n${summary}`)
           } else if (backstory) {
             lines.push(`\nContext:\n${backstory}`)
           }
+
           if (events.length > 0) {
-            const eventLines = events.slice(-8).map((e) => `- ${e.date}: ${e.description}`).join('\n')
+            const eventLines = events.slice(-8).map((e: RelationshipEvent) => `- ${e.date}: ${e.description}`).join('\n')
             lines.push(`\nKey shared memories:\n${eventLines}`)
           }
+
+          if (milestonesAchieved.length > 0) {
+            const milestoneLines = milestonesAchieved.slice(-5).map((m) => `- ${m.name}`).join('\n')
+            lines.push(`\nRelationship milestones reached:\n${milestoneLines}`)
+          }
+
           lines.push(`\nThis is the emotional truth between you and ${pName}. Do NOT state it plainly — embody it. Let it bleed through every glance, every pause, every word chosen or bitten back.`)
           relationshipBlock = lines.join('\n')
         }
@@ -543,11 +599,21 @@ export async function POST(
       })
     }
 
-    // Update chat timestamp
+    // Update chat timestamp + increment messages_since_analysis for relationship tracking
     await serviceClient
       .from('chats')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', chatId)
+
+    // Increment the message counter on the relationship row (fire-and-forget)
+    if (personaId) {
+      void Promise.resolve(
+        serviceClient.rpc('increment_relationship_message_counter', {
+          p_chat_id: chatId,
+          p_persona_id: personaId,
+        })
+      ).catch(() => {})
+    }
 
     return NextResponse.json({
       userMessage,

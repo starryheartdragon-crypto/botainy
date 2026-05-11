@@ -10,6 +10,8 @@ const Cropper = dynamic(() => import("react-easy-crop"), { ssr: false })
 import { UNIVERSE_CATEGORIES } from "@/lib/botUniverses"
 import { supabase } from "@/lib/supabase"
 import AiFieldAssist from "@/components/AiFieldAssist"
+import RelationshipSystemEditor from "@/components/RelationshipSystemEditor"
+import type { BotRelationshipConfig } from "@/app/api/bots/[botId]/relationship-config/route"
 
 export default function CreateBotPage() {
   const router = useRouter()
@@ -89,6 +91,7 @@ export default function CreateBotPage() {
   const [botEncounterEscalation, setBotEncounterEscalation] = useState("")
   const [lastCreatedBotId, setLastCreatedBotId] = useState<string | null>(null)
   const [lastCreatedBotPublished, setLastCreatedBotPublished] = useState<boolean | null>(null)
+  const [botRelationshipConfig, setBotRelationshipConfig] = useState<BotRelationshipConfig | null>(null)
 
   const [personaName, setPersonaName] = useState("")
   const [personaDescription, setPersonaDescription] = useState("")
@@ -553,8 +556,21 @@ export default function CreateBotPage() {
         throw new Error(payload.error || "Failed to create bot")
       }
 
+      const createdBotId = payload.bot.id
+      // Save relationship config if the creator configured one
+      if (createdBotId && botRelationshipConfig) {
+        try {
+          await fetch(`/api/bots/${createdBotId}/relationship-config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(botRelationshipConfig),
+          })
+        } catch {
+          // Non-critical — relationship config can be set later
+        }
+      }
       toast.success(botPublishNow ? "Bot created and published!" : "Bot created as private to My Bots")
-      setLastCreatedBotId(payload.bot.id ?? null)
+      setLastCreatedBotId(createdBotId ?? null)
       setLastCreatedBotPublished(!!payload.bot.is_published)
       setBotName("")
       setBotUniverse("")
@@ -1794,6 +1810,13 @@ export default function CreateBotPage() {
                   </div>
                 </>
               )}
+
+              {/* Relationship System */}
+              <div className="border-t border-gray-700/50 pt-6">
+                <RelationshipSystemEditor
+                  onChange={setBotRelationshipConfig}
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-300 mb-1.5">Visibility</label>

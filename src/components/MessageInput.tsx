@@ -72,13 +72,8 @@ export function MessageInput({ onSendMessage, loading, onAiAssist }: MessageInpu
               setAiLoading(true);
               try {
                 const suggestion = await onAiAssist(input);
-                // Only update the textarea if the AI returned something
-                // meaningful and different from what was already there
-                if (
-                  typeof suggestion === 'string' &&
-                  suggestion.trim().length > 0 &&
-                  suggestion.trim() !== input.trim()
-                ) {
+                // Only update if we got a valid, non-empty suggestion
+                if (typeof suggestion === 'string' && suggestion.trim().length > 0) {
                   setInput(suggestion);
                 }
               } finally {
