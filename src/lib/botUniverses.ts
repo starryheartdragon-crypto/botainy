@@ -44,14 +44,18 @@ export const UNIVERSE_CATEGORIES = {
   ],
   "Mythology & History": [
     "Celtic mythology",
+    "Diné mythology",
     "Egyptian mythology",
     "Greek mythology",
     "Hindu mythology",
     "Historical figures",
     "Japanese mythology",
     "Norse mythology",
+    "Persian mythology",
     "Roman mythology",
     "Slavic mythology",
+    "Sumerian mythology",
+    "West African mythology",
   ],
   "Sci-Fi & Dystopian": [
     "Alien",

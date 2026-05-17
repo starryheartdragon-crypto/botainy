@@ -40,6 +40,11 @@ export function QuickStartModal({ open, onClose }: QuickStartModalProps) {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [universeRequestName, setUniverseRequestName] = useState('')
+  const [universeRequestDetails, setUniverseRequestDetails] = useState('')
+  const [universeRequestLoading, setUniverseRequestLoading] = useState(false)
+  const [universeRequestMessage, setUniverseRequestMessage] = useState<string | null>(null)
+
   const fetchCasts = useCallback(async () => {
     setLoadingCasts(true)
     try {
@@ -135,6 +140,42 @@ export function QuickStartModal({ open, onClose }: QuickStartModalProps) {
     }
   }
 
+  async function handleSubmitUniverseRequest(e: React.FormEvent) {
+    e.preventDefault()
+    setUniverseRequestMessage(null)
+
+    const trimmedName = universeRequestName.trim()
+    const trimmedDetails = universeRequestDetails.trim()
+
+    if (!trimmedName || !trimmedDetails) {
+      setUniverseRequestMessage('Please provide a universe name and request details.')
+      return
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setUniverseRequestMessage('You must be signed in to submit a request.')
+      return
+    }
+
+    try {
+      setUniverseRequestLoading(true)
+      const { error: insertError } = await supabase.from('bot_universe_requests').insert({
+        requester_id: user.id,
+        requested_name: trimmedName,
+        request_details: trimmedDetails,
+      })
+      if (insertError) throw insertError
+      setUniverseRequestName('')
+      setUniverseRequestDetails('')
+      setUniverseRequestMessage('Request sent to admin for review.')
+    } catch (err) {
+      setUniverseRequestMessage(err instanceof Error ? err.message : 'Failed to send request')
+    } finally {
+      setUniverseRequestLoading(false)
+    }
+  }
+
   if (!open) return null
 
   return (
@@ -210,10 +251,52 @@ export function QuickStartModal({ open, onClose }: QuickStartModalProps) {
                   ))}
                 </div>
               )}
+
+              {/* Universe request */}
+              <div className="mt-8 rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+                <h3 className="text-sm font-semibold text-gray-200 mb-1">Don't see your universe?</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Submit a request and admins can add it. Same queue as Bot Creation requests.
+                </p>
+                <form onSubmit={(e) => void handleSubmitUniverseRequest(e)} className="space-y-2">
+                  <input
+                    value={universeRequestName}
+                    onChange={(e) => setUniverseRequestName(e.target.value)}
+                    placeholder="Requested universe name"
+                    maxLength={80}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950 border border-gray-700 text-white text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                    required
+                  />
+                  <textarea
+                    value={universeRequestDetails}
+                    onChange={(e) => setUniverseRequestDetails(e.target.value)}
+                    placeholder="What should this universe include for Quick Start?"
+                    rows={2}
+                    maxLength={500}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950 border border-gray-700 text-white text-sm resize-none focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                    required
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-gray-500">{universeRequestDetails.length}/500</span>
+                    <button
+                      type="submit"
+                      disabled={universeRequestLoading}
+                      className="px-4 py-1.5 text-sm rounded-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:opacity-60 transition text-white"
+                    >
+                      {universeRequestLoading ? 'Sending…' : 'Send Request'}
+                    </button>
+                  </div>
+                  {universeRequestMessage && (
+                    <div className="text-xs text-gray-200 bg-gray-800/80 border border-gray-700 rounded-lg px-3 py-2">
+                      {universeRequestMessage}
+                    </div>
+                  )}
+                </form>
+              </div>
             </div>
           )}
 
-          {/* Step: pick persona */}
+          {/* Step: pick persona */
           {step === 'persona' && selected && (
             <div className="p-6">
               <button
