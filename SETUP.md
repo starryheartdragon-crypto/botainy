@@ -76,4 +76,18 @@ CREATE TABLE chat_messages (
   content TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Chat rooms table (public/admin-created rooms)
+CREATE TABLE chat_rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  background_url TEXT,
+  city_info TEXT,
+  notable_bots TEXT,
+  universe TEXT,
+  era TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
