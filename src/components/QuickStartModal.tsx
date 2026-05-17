@@ -296,7 +296,7 @@ export function QuickStartModal({ open, onClose }: QuickStartModalProps) {
             </div>
           )}
 
-          {/* Step: pick persona */
+          {/* Step: pick persona */}
           {step === 'persona' && selected && (
             <div className="p-6">
               <button
